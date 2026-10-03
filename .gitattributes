@@ -1,0 +1,4 @@
+* text=auto eol=lf
+*.png binary
+# fixtures stay visible in diffs: they decide what the tests assert
+tests/fixtures/*.json linguist-generated

@@ -1,0 +1,163 @@
+# gridhour
+
+[![CI](https://github.com/777dimas/gridhour/actions/workflows/ci.yml/badge.svg)](https://github.com/777dimas/gridhour/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/777dimas/gridhour/actions/workflows/codeql.yml/badge.svg)](https://github.com/777dimas/gridhour/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/777dimas/gridhour/badge)](https://scorecard.dev/viewer/?uri=github.com/777dimas/gridhour)
+
+When is British electricity green and cheap? gridhour shows the next 48 hours of carbon
+intensity for your postcode and Octopus Agile prices on one timeline in the terminal, then
+picks the best time to start the washing, charge the car or kick off a batch job.
+
+```console
+$ gridhour --line
+⚡ 142g · 14p · green in 2h
+```
+
+![gridhour main view](https://raw.githubusercontent.com/777dimas/gridhour/main/docs/main.png)
+
+## What you see
+
+* **The chart.** Carbon intensity (gCO₂/kWh) rises above the time axis, the Agile unit price
+  hangs below it. Green is clean or cheap, red is dirty or dear, blue is a plunge price where
+  Octopus pays you to use power. The hours already gone are dimmed.
+* **Generation mix.** Wind, solar, gas, nuclear and the rest, as shares of your region's
+  supply, on the same time axis. Handy for seeing *why* tomorrow afternoon is clean.
+* **Best time to run.** One row per job. Each row is shaded by how good every start time is,
+  and the bright block is the best window, with its average carbon and price next to it. The
+  status line tells you how much that saves against starting right now.
+* **A cursor** runs straight down through all of it. Move it with the arrow keys to read any
+  half hour; `Enter` jumps to the selected job's best window.
+
+Jobs are ranked by carbon, by price, or by both (each normalised over the 48 hours and
+averaged). `w` switches between them.
+
+| Scrubbed to tomorrow morning | Compact layout for a tmux split |
+| --- | --- |
+| ![scrubbing](https://raw.githubusercontent.com/777dimas/gridhour/main/docs/scrub.png) | ![compact](https://raw.githubusercontent.com/777dimas/gridhour/main/docs/compact.png) |
+
+## Install
+
+You need Python 3.11 or newer, a terminal with truecolor and a UTF-8 locale. Linux and macOS;
+on Windows use WSL.
+
+```sh
+pipx install git+https://github.com/777dimas/gridhour
+gridhour SW1A 1AA
+```
+
+Once a release is on PyPI this becomes `pipx install gridhour`. From a clone there is nothing to
+build: `python3 -m gridhour SW1A`.
+
+The postcode you give is remembered, so after the first run plain `gridhour` is enough. Only
+the first half (`SW1A`) is ever used or sent anywhere. Northern Ireland is not on the GB grid,
+so BT postcodes have no forecast.
+
+## Usage
+
+```sh
+gridhour                           # your saved postcode
+gridhour M1 1AE                    # a new postcode (saved)
+gridhour --region scotland         # a region instead, for this run only
+gridhour --mode green              # rank by carbon only (also: cheap, both)
+gridhour --no-prices               # skip Agile, for people on a flat tariff
+gridhour --at 2026-10-04T18:00Z    # start with the cursor at a given time
+gridhour --theme slate --12h
+gridhour --reset                   # delete the saved postcode, jobs, settings and the cache
+```
+
+Keys inside the app (`?` lists them all):
+
+| Key | Action |
+| --- | --- |
+| `←` `→` | move the cursor 30 minutes, Shift or `H` `L` for 2 hours |
+| `Home` `End` `r` | start and end of the forecast, back to now |
+| `↑` `↓` | select a job |
+| `+` `-` | make the selected job 30 minutes longer or shorter |
+| `a` `d` | add a job (`Dryer 1h30`), delete the selected one |
+| `Enter` | jump to the selected job's best window |
+| `w` | rank by carbon, price, or both |
+| `p` | change postcode |
+| `m` `c` `T` `t` | mix rows, compact layout, theme, 12/24h |
+| `R` | refetch now |
+| `q` | quit |
+
+Settings and jobs live in `~/.config/gridhour/config.json`.
+
+## Status bars and scripts
+
+```console
+$ gridhour --line
+⚡ 142g · 14p · green in 2h
+
+$ gridhour --line --best 3h
+⚡ 142g · 14p · 3h best 13:00 (in 4h30)
+
+$ gridhour --tmux                  # same, with tmux colour codes for status-right
+$ gridhour --watch                 # same, updating in place
+$ gridhour --json | jq '.jobs[] | {name, start: .best.from}'
+```
+
+"Green" means NESO's forecast grades the half hour as *low* or *very low* for your region.
+If nothing in the next 48 hours makes that grade, the line says `greenest in 9h` instead.
+
+`--json` gives the current half hour, the next green slot, the best window for every job (with
+the carbon and price you would get starting now, for comparison) and the full 48 hour series.
+
+A tmux example:
+
+```tmux
+set -g status-right '#(gridhour --tmux) '
+set -g status-interval 300
+```
+
+## Where the numbers come from
+
+* **Carbon intensity** and the **generation mix**: the [Carbon Intensity API](https://carbonintensity.org.uk/)
+  from the National Energy System Operator (NESO), regional forecast by postcode. Free, no key,
+  CC BY 4.0.
+* **Prices**: the public [Octopus Energy API](https://developer.octopus.energy/), the Agile
+  import tariff for your region, including VAT. Octopus publishes the next day's prices at about
+  4pm, so before that the price half of the chart stops around 11pm tonight and the "cheap"
+  ranking only looks that far ahead.
+
+These are forecasts. The carbon forecast for tomorrow afternoon can be off by a fair
+margin; Agile prices, once published, are what you pay. gridhour is not affiliated with Octopus
+Energy or NESO.
+
+Responses are cached in `~/.cache/gridhour` for 30 minutes. If the network is down the app
+keeps showing the cached data and says how old it is. `GRIDHOUR_OFFLINE=1` stops all network
+access.
+
+## Security and privacy
+
+gridhour talks to those two APIs over HTTPS and nothing else (redirects are refused), sends only
+the first half of your postcode and your region letter, and has no runtime dependencies.
+Responses are checked field by field before they are used or cached, and text from them never
+reaches your terminal or tmux with escape sequences or format codes in it. Details and how to
+report a problem: [SECURITY.md](https://github.com/777dimas/gridhour/blob/main/SECURITY.md).
+
+## Development
+
+```sh
+python3 -m venv .venv && . .venv/bin/activate
+pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
+pytest
+```
+
+The tests replay real API responses from `tests/fixtures/`; sockets are blocked while they run.
+More in [CONTRIBUTING.md](https://github.com/777dimas/gridhour/blob/main/CONTRIBUTING.md).
+
+| Module | What it does |
+| --- | --- |
+| `grid.py` | the two APIs, regions and postcodes, the cache |
+| `plan.py` | scoring half hours, best windows, "green in 2h" |
+| `compose.py` | turns the state into a frame |
+| `canvas.py` | character grid with colours, rendered to ANSI |
+| `safe.py` | cleaning outside text, private atomic file writes |
+| `app.py`, `keys.py` | the terminal loop and every key |
+| `output.py` | `--line`, `--tmux`, `--json`, `--watch` |
+| `state.py`, `themes.py`, `cli.py` | settings, colours, arguments |
+
+## Licence
+
+MIT, see [LICENSE](https://github.com/777dimas/gridhour/blob/main/LICENSE).

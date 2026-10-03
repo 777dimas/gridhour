@@ -1,0 +1,417 @@
+"""Forecast data: carbon intensity from the NESO Carbon Intensity API and Agile prices from Octopus.
+
+Both APIs are free and need no key. Responses are cached under ~/.cache/gridhour so the app
+starts instantly and keeps working without a network, with the age of the data shown on screen.
+"""
+import http.client
+import json
+import math
+import os
+import re
+import time
+import urllib.error
+import urllib.request
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+
+from . import __version__
+from .safe import atomic_write, label
+
+CARBON_API = "https://api.carbonintensity.org.uk"
+OCTOPUS_API = "https://api.octopus.energy/v1"
+FALLBACK_AGILE = "AGILE-24-10-01"
+SLOT = timedelta(minutes=30)
+WINDOW_SLOTS = 96               # 48 hours
+PAST = timedelta(hours=2)       # how much of the timeline lies before now
+MAX_AGE = 30 * 60               # seconds before cached data is refetched
+MAX_BYTES = 4 * 1024 * 1024     # a 48 hour forecast is about 40 kB; anything this big is not one
+DEADLINE = 25                   # seconds for a whole request, however slowly the bytes trickle in
+MAX_ROWS = 2000                 # rows looked at in one response
+PRODUCT_CODE = re.compile(r"AGILE-[A-Z0-9]+(?:-[A-Z0-9]+)*", re.ASCII)       # always used with fullmatch
+CACHE_KEY = re.compile(r"[a-z]+-[A-Za-z0-9]+", re.ASCII)
+ALLOWED = ("https://api.carbonintensity.org.uk/", "https://api.octopus.energy/")
+FUELS = {"biomass", "coal", "imports", "gas", "nuclear", "other", "hydro", "solar", "wind"}
+INDEXES = {"very low", "low", "moderate", "high", "very high"}
+
+# Carbon Intensity API region id -> (short name, Octopus grid supply point group).
+# The fourteen DNO regions are the same areas in both APIs; 15-18 are whole nations.
+REGIONS = {
+    1: ("North Scotland", "P"), 2: ("South Scotland", "N"), 3: ("North West England", "G"),
+    4: ("North East England", "F"), 5: ("Yorkshire", "M"), 6: ("North Wales & Merseyside", "D"),
+    7: ("South Wales", "K"), 8: ("West Midlands", "E"), 9: ("East Midlands", "B"), 10: ("East England", "A"),
+    11: ("South West England", "L"), 12: ("South England", "H"), 13: ("London", "C"),
+    14: ("South East England", "J"), 15: ("England", None), 16: ("Scotland", None), 17: ("Wales", None),
+    18: ("GB", None),
+}
+GSP_REGION = {gsp: rid for rid, (_, gsp) in REGIONS.items() if gsp}
+GREEN_INDEX = ("very low", "low")
+
+
+@dataclass
+class Slot:
+    start: datetime                 # UTC, on a half hour
+    carbon: int = None              # gCO2/kWh
+    index: str = None               # "very low" ... "very high", as the API grades it
+    mix: dict = None                # fuel -> percent
+    price: float = None             # p/kWh including VAT
+
+    @property
+    def end(self):
+        return self.start + SLOT
+
+    @property
+    def green(self):
+        return self.index in GREEN_INDEX
+
+
+@dataclass
+class Forecast:
+    region: str = "GB"
+    region_id: int = 18
+    postcode: str = None
+    gsp: str = None                 # Octopus region letter, None when prices are off
+    tariff: str = None
+    slots: list = field(default_factory=list)
+    fetched: float = 0.0            # unix time of the oldest data shown
+    errors: list = field(default_factory=list)
+
+    def at(self, t):
+        """The slot that contains ``t``, or None."""
+        for s in self.slots:
+            if s.start <= t < s.end:
+                return s
+        return None
+
+    @property
+    def has_prices(self):
+        return any(s.price is not None for s in self.slots)
+
+
+# ---------------------------------------------------------------- where
+
+OUTCODE = re.compile(r"[A-Z]{1,2}[0-9][A-Z0-9]?", re.ASCII)
+
+
+def normalize_postcode(text):
+    """Return the outward code ("SW1A") of a UK postcode, full or partial. Raises ValueError."""
+    s = re.sub(r"\s+", " ", str(text or "").strip().upper())
+    if " " in s:
+        s, _, inward = s.partition(" ")
+        if not re.fullmatch(r"[0-9]([A-Z]{2})?", inward, re.ASCII):
+            raise ValueError("not a UK postcode: %r" % text)
+    elif len(s) >= 5 and re.search(r"[0-9][A-Z]{2}$", s, re.ASCII):
+        s = s[:-3]
+    if not OUTCODE.fullmatch(s):
+        raise ValueError("not a UK postcode: %r" % text)
+    if s.startswith("BT"):
+        raise ValueError("Northern Ireland is not on the GB grid, so there is no forecast for BT postcodes")
+    return s
+
+
+def region_from_arg(text):
+    """Accept a region id (13), an Octopus letter (C) or a name (london). Returns the region id."""
+    t = str(text or "").strip()
+    if t.isascii() and t.isdigit() and int(t) in REGIONS:
+        return int(t)
+    if t.upper().lstrip("_") in GSP_REGION:
+        return GSP_REGION[t.upper().lstrip("_")]
+    low = t.lower()
+    for rid, (name, _) in REGIONS.items():
+        if name.lower() == low:
+            return rid
+    for rid, (name, _) in REGIONS.items():
+        if name.lower().startswith(low) and low:
+            return rid
+    raise ValueError("unknown region %r (try 1-18, a letter A-P, or a name like 'london')" % text)
+
+
+# ---------------------------------------------------------------- time
+
+def floor_slot(t):
+    return t.replace(minute=t.minute - t.minute % 30, second=0, microsecond=0)
+
+
+def window_start(now):
+    return now.replace(minute=0, second=0, microsecond=0) - PAST
+
+
+def iso(t):
+    return t.astimezone(UTC).strftime("%Y-%m-%dT%H:%MZ")
+
+
+TIME = re.compile(r"\d{4}-\d\d-\d\d[T ]\d\d:\d\d(?::\d\d(?:\.\d+)?)?(?:Z|[+-]\d\d:?\d\d)?", re.ASCII)
+
+
+def parse_time(s):
+    """ISO 8601 -> aware UTC datetime. Without an offset the time is taken as UTC."""
+    if not isinstance(s, str) or not TIME.fullmatch(s.strip()):
+        raise ValueError("not a time: %r" % (s if isinstance(s, str) and len(s) < 40 else type(s).__name__))
+    s = s.strip().replace("Z", "+00:00")
+    if re.search(r"T\d\d:\d\d[+-]", s):
+        s = s[:16] + ":00" + s[16:]
+    try:
+        t = datetime.fromisoformat(s)
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=UTC)
+        return t.astimezone(UTC)
+    except (ValueError, OverflowError) as e:
+        raise ValueError("not a time: %r" % s) from e
+
+
+# ---------------------------------------------------------------- parsing (everything here is untrusted)
+
+def number(v, lo, hi):
+    """A finite real number within [lo, hi]. Booleans and strings are refused."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        raise ValueError("not a number")
+    f = float(v)
+    if not math.isfinite(f) or not lo <= f <= hi:
+        raise ValueError("number out of range")
+    return f
+
+
+def _rows(container, key):
+    rows = container.get(key) if isinstance(container, dict) else None
+    if not isinstance(rows, list):
+        raise ValueError("unexpected response")
+    return [r for r in rows[:MAX_ROWS] if isinstance(r, dict)]
+
+
+def parse_carbon(doc):
+    """Regional fw48h response -> (region info dict, {start: (carbon, index, mix)})."""
+    data = doc.get("data") if isinstance(doc, dict) else None
+    if isinstance(data, list):          # the regionid endpoint wraps the region in a list
+        data = data[0] if data else None
+    if not isinstance(data, dict) or not isinstance(data.get("data"), list):
+        raise ValueError("no carbon intensity data for that place")
+    rid = data.get("regionid")
+    info = {"region_id": rid if type(rid) is int and rid in REGIONS else None,
+            "region": label(data.get("shortname"), 30), "postcode": label(data.get("postcode"), 8)}
+    out = {}
+    for row in _rows(data, "data"):
+        try:
+            it = row.get("intensity")
+            if not isinstance(it, dict) or it.get("forecast") is None:
+                continue
+            g = int(number(it["forecast"], 0, 2000))
+            idx = it.get("index")
+            idx = idx if isinstance(idx, str) and idx in INDEXES else None
+            mix = {}
+            gen = row.get("generationmix")
+            for m in gen[:20] if isinstance(gen, list) else []:
+                fuel = m.get("fuel") if isinstance(m, dict) else None
+                if isinstance(fuel, str) and fuel in FUELS:
+                    try:
+                        mix[fuel] = number(m.get("perc"), 0, 100)
+                    except ValueError:
+                        pass            # a bad share loses that fuel, not the half hour
+            out[parse_time(row.get("from"))] = (g, idx, mix or None)
+        except (ValueError, TypeError):
+            continue                    # one bad row costs that half hour, not the forecast
+    if not out:
+        raise ValueError("no carbon intensity data for that place")
+    return info, out
+
+
+def parse_prices(doc):
+    """Octopus standard-unit-rates response -> {start: pence per kWh including VAT}."""
+    out = {}
+    for row in _rows(doc, "results"):
+        if row.get("payment_method") not in (None, "DIRECT_DEBIT"):
+            continue
+        try:
+            out[parse_time(row.get("valid_from"))] = number(row.get("value_inc_vat"), -200, 500)
+        except ValueError:
+            continue
+    return out
+
+
+def pick_agile(doc):
+    """The newest Agile import product in an Octopus product list."""
+    codes = []
+    for p in _rows(doc, "results"):
+        code = p.get("code")
+        if (isinstance(code, str) and PRODUCT_CODE.fullmatch(code) and "OUTGOING" not in code
+                and p.get("direction", "IMPORT") == "IMPORT" and not p.get("available_to")):
+            codes.append(code)
+    codes.sort(key=lambda c: c.split("-")[-3:] if re.search(r"[0-9]{2}-[0-9]{2}-[0-9]{2}$", c) else ["0"])
+    return codes[-1] if codes else FALLBACK_AGILE
+
+
+def build_slots(start, carbon, prices, n=WINDOW_SLOTS):
+    slots = []
+    for i in range(n):
+        t = start + SLOT * i
+        g, idx, mix = carbon.get(t, (None, None, None))
+        slots.append(Slot(t, g, idx, mix, prices.get(t)))
+    return slots
+
+
+# ---------------------------------------------------------------- network and cache
+
+def cache_dir():
+    base = os.environ.get("XDG_CACHE_HOME") or os.path.join(os.path.expanduser("~"), ".cache")
+    return os.path.join(base, "gridhour")
+
+
+def offline():
+    return os.environ.get("GRIDHOUR_OFFLINE", "") not in ("", "0")
+
+
+def _cache_path(key):
+    if not CACHE_KEY.fullmatch(key):
+        raise ValueError("bad cache key")
+    return os.path.join(cache_dir(), key + ".json")
+
+
+def _read_cache(key):
+    try:
+        with open(_cache_path(key), encoding="utf-8") as f:
+            box = json.loads(f.read(MAX_BYTES + 1))
+        at = number(box["at"], 0, time.time() + 300)    # a timestamp from the future would never expire
+        return at, box["doc"]
+    except (OSError, ValueError, KeyError, TypeError, RecursionError):
+        return None, None
+
+
+def _write_cache(key, doc):
+    try:
+        atomic_write(_cache_path(key), json.dumps({"at": time.time(), "doc": doc}))
+    except (OSError, ValueError):
+        pass
+
+
+class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
+    """Both APIs answer directly. A redirect could lead anywhere, plain http included."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, "redirect refused", headers, fp)
+
+
+_OPENER = urllib.request.build_opener(_RefuseRedirects)
+
+
+def http_json(url, timeout=12):
+    if not isinstance(url, str) or not url.startswith(ALLOWED):
+        raise ValueError("refusing to fetch %r" % url)
+    # scheme and host are checked above and redirects are refused, so S310 cannot apply
+    req = urllib.request.Request(url, headers={"User-Agent": "gridhour/" + __version__,  # noqa: S310
+                                               "Accept": "application/json"})
+    deadline = time.monotonic() + DEADLINE
+    chunks, size = [], 0
+    with _OPENER.open(req, timeout=timeout) as r:
+        if not r.geturl().startswith(ALLOWED):
+            raise ValueError("response came from somewhere else")
+        while True:
+            if time.monotonic() > deadline:
+                raise TimeoutError("took longer than %d seconds" % DEADLINE)
+            chunk = r.read(64 * 1024)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > MAX_BYTES:
+                raise ValueError("response larger than %d bytes" % MAX_BYTES)
+            chunks.append(chunk)
+    return json.loads(b"".join(chunks).decode("utf-8"))
+
+
+def _why(e):
+    """A short reason for the status line that never echoes response content."""
+    if isinstance(e, urllib.error.HTTPError):
+        return "HTTP %d" % e.code
+    if isinstance(e, urllib.error.URLError):
+        return label(str(e.reason), 50) or "unreachable"
+    if isinstance(e, (json.JSONDecodeError, UnicodeDecodeError, RecursionError)):
+        return "unreadable response"
+    if isinstance(e, (TimeoutError, OSError)):
+        return label(str(e), 50) or type(e).__name__
+    if isinstance(e, ValueError) and str(e).startswith(("response", "refusing", "took")):
+        return label(str(e), 60)
+    return type(e).__name__
+
+
+FETCH_ERRORS = (urllib.error.URLError, OSError, ValueError, http.client.HTTPException, RecursionError,
+                OverflowError)
+
+
+def cached_json(key, url, parse, max_age=MAX_AGE, force=False, fetch=None):
+    """(fetched_at, parsed, error). A response is parsed before it is cached, so a broken one is
+    never stored; a cache entry that no longer parses counts as missing. Falls back to a stale
+    cache when the network fails."""
+    at, doc = _read_cache(key)
+    parsed = None
+    if doc is not None:
+        try:
+            parsed = parse(doc)
+        except (ValueError, TypeError, KeyError, AttributeError, RecursionError, OverflowError):
+            at, parsed = None, None
+    if parsed is not None and not force and time.time() - at < max_age:
+        return at, parsed, None
+    if offline():
+        return at, parsed, None if parsed is not None else "offline and nothing cached yet"
+    try:
+        fresh = (fetch or http_json)(url)
+        result = parse(fresh)
+    except FETCH_ERRORS as e:
+        return at, parsed, "network: %s" % _why(e)
+    except (TypeError, KeyError, AttributeError):
+        return at, parsed, "network: unreadable response"
+    _write_cache(key, fresh)
+    return time.time(), result, None
+
+
+def carbon_url(start, postcode=None, region_id=None):
+    if postcode:
+        return "%s/regional/intensity/%s/fw48h/postcode/%s" % (CARBON_API, iso(start), postcode)
+    return "%s/regional/intensity/%s/fw48h/regionid/%d" % (CARBON_API, iso(start), region_id or 18)
+
+
+def prices_url(product, gsp, start, end):
+    if not isinstance(product, str) or not PRODUCT_CODE.fullmatch(product) or gsp not in GSP_REGION:
+        raise ValueError("refusing to build a price URL from %r and %r" % (product, gsp))
+    tariff = "E-1R-%s-%s" % (product, gsp)
+    return ("%s/products/%s/electricity-tariffs/%s/standard-unit-rates/?period_from=%s&period_to=%s&page_size=1500"
+            % (OCTOPUS_API, product, tariff, iso(start), iso(end)))
+
+
+def load(now, postcode=None, region_id=None, gsp=None, prices=True, force=False, fetch=None):
+    """Fetch (or read from cache) everything for the 48 hour window around ``now``."""
+    start = window_start(now)
+    end = start + SLOT * WINDOW_SLOTS
+    if postcode is not None:
+        postcode = normalize_postcode(postcode)
+    if region_id not in REGIONS:
+        region_id = None
+    fc = Forecast(postcode=postcode)
+    key = "carbon-" + (postcode or "r%d" % (region_id or 18))
+    at, parsed, err = cached_json(key, carbon_url(start, postcode, region_id), parse_carbon, force=force, fetch=fetch)
+    carbon = {}
+    fc.region_id = region_id or 18
+    if parsed is not None:
+        info, carbon = parsed
+        fc.region_id = info["region_id"] or fc.region_id
+        fc.fetched = at
+        fc.region = info["region"] or REGIONS[fc.region_id][0]
+    else:
+        fc.region = REGIONS[fc.region_id][0]
+    if err:
+        fc.errors.append(err)
+    price_map = {}
+    fc.gsp = gsp if gsp in GSP_REGION else REGIONS[fc.region_id][1]
+    if prices and fc.gsp:
+        _, product, _ = cached_json("agile-product", OCTOPUS_API + "/products/?brand=OCTOPUS_ENERGY&is_variable=true"
+                                    "&page_size=100", pick_agile, max_age=86400, fetch=fetch)
+        product = product or FALLBACK_AGILE
+        fc.tariff = "E-1R-%s-%s" % (product, fc.gsp)
+        rat, parsed, rerr = cached_json("prices-" + fc.gsp, prices_url(product, fc.gsp, start, end + SLOT * 48),
+                                        parse_prices, force=force, fetch=fetch)
+        if parsed is not None:
+            price_map = parsed
+            if rat and (not fc.fetched or rat < fc.fetched):
+                fc.fetched = rat
+        if rerr:
+            fc.errors.append(rerr.replace("network", "prices", 1))
+    elif not prices:
+        fc.gsp = None
+    fc.slots = build_slots(start, carbon, price_map)
+    return fc
