@@ -19,7 +19,7 @@ concurrency:
 jobs:
   verify:
     name: Release / verify
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -50,7 +50,7 @@ jobs:
   build:
     name: Release / build
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -85,7 +85,7 @@ jobs:
   attest:
     name: Release / attest
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       id-token: write           # Sigstore certificate for the provenance
@@ -116,7 +116,7 @@ jobs:
   publish:
     name: Release / publish
     needs: attest
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment:
       name: pypi
@@ -149,7 +149,7 @@ jobs:
   github-release:
     name: Release / github release
     needs: publish
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write           # create the release

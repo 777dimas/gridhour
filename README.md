@@ -1,5 +1,7 @@
 # gridhour
 
+[![PyPI](https://img.shields.io/pypi/v/gridhour)](https://pypi.org/project/gridhour/)
+[![Python](https://img.shields.io/pypi/pyversions/gridhour)](https://pypi.org/project/gridhour/)
 [![CI](https://github.com/777dimas/gridhour/actions/workflows/ci.yml/badge.svg)](https://github.com/777dimas/gridhour/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/777dimas/gridhour/actions/workflows/codeql.yml/badge.svg)](https://github.com/777dimas/gridhour/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/777dimas/gridhour/badge)](https://scorecard.dev/viewer/?uri=github.com/777dimas/gridhour)
@@ -40,17 +42,40 @@ averaged). `w` switches between them.
 You need Python 3.11 or newer, a terminal with truecolor and a UTF-8 locale. Linux and macOS;
 on Windows use WSL.
 
+The simplest way is [pipx](https://pipx.pypa.io/), which installs the `gridhour` command for your
+user in its own environment:
+
 ```sh
-pipx install git+https://github.com/777dimas/gridhour
+pipx install gridhour
 gridhour SW1A 1AA
 ```
 
-Once a release is on PyPI this becomes `pipx install gridhour`. From a clone there is nothing to
-build: `python3 -m gridhour SW1A`.
+No pipx yet? `sudo apt install pipx` on Debian and Ubuntu, `brew install pipx` on macOS. If your
+shell cannot find `gridhour` afterwards, run `pipx ensurepath` once and open a new terminal.
+
+To try it without installing: `pipx run gridhour SW1A` or `uvx gridhour SW1A`.
 
 The postcode you give is remembered, so after the first run plain `gridhour` is enough. Only
 the first half (`SW1A`) is ever used or sent anywhere. Northern Ireland is not on the GB grid,
 so BT postcodes have no forecast.
+
+### Updating and removing
+
+```sh
+pipx upgrade gridhour
+gridhour --reset && pipx uninstall gridhour    # --reset first deletes the saved settings and cache
+```
+
+`gridhour --version` shows what you have.
+
+### Other ways
+
+* **pip**, in a virtual environment: `pip install gridhour`.
+* **From a clone**, nothing to build: `python3 -m gridhour SW1A`.
+* **The newest unreleased code**: `pipx install git+https://github.com/777dimas/gridhour`.
+
+Every release on PyPI carries signed build provenance; [SECURITY.md](https://github.com/777dimas/gridhour/blob/main/SECURITY.md#supply-chain)
+shows how to check a file against it.
 
 ## Usage
 
