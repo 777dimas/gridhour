@@ -5,6 +5,11 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+* Network requests now return within the overall deadline even when DNS resolution stalls,
+  allowing status lines to fall back to cached forecasts. Outstanding requests are capped.
+
 ## [0.1.2] - 2026-10-04
 
 ### Fixed

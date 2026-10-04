@@ -1,8 +1,12 @@
 """Untrusted input: API responses, redirects, the cache, the config file, terminal output."""
 import json
 import os
+import socket
 import stat
+import subprocess
+import sys
 import time
+from threading import BoundedSemaphore, Event
 
 import pytest
 from conftest import NOW, fake_fetch, fixture
@@ -323,3 +327,121 @@ def test_reset_removes_the_cache_with_the_postcode_in_its_name(capsys):
     assert any(n.startswith("carbon-SW1A") for n in os.listdir(grid.cache_dir()))
     cli.main(["--reset"])
     assert not any(n.startswith("carbon-") for n in os.listdir(grid.cache_dir()))
+
+
+@pytest.mark.parametrize("phase", ["dns", "body"])
+def test_blocked_request_returns_at_deadline(monkeypatch, phase):
+    release = Event()
+    entered = Event()
+    slots = BoundedSemaphore(1)
+    monkeypatch.setattr(grid, "_REQUEST_SLOTS", slots)
+    monkeypatch.setattr(grid, "DEADLINE", 0.05)
+
+    def blocked_dns(*args):
+        entered.set()
+        assert release.wait(2)
+        return []
+
+    class Response(FakeResponse):
+        def read(self, n):
+            if phase == "body":
+                entered.set()
+                assert release.wait(2)
+            return super().read(n)
+
+    def open_response(req, timeout):
+        if phase == "dns":
+            socket.getaddrinfo("api.carbonintensity.org.uk", 443)
+        return Response(b"{}")
+
+    monkeypatch.setattr(socket, "getaddrinfo", blocked_dns)
+    monkeypatch.setattr(grid._OPENER, "open", open_response)
+    start = time.monotonic()
+    try:
+        with pytest.raises(TimeoutError, match="took longer"):
+            REAL_HTTP_JSON(grid.CARBON_API + "/intensity")
+        assert entered.is_set()
+        assert time.monotonic() - start < 0.5
+    finally:
+        release.set()
+        assert slots.acquire(timeout=1)
+        slots.release()
+
+
+def test_stalled_requests_are_capped_and_capacity_recovers(monkeypatch):
+    release = Event()
+    started = []
+    slots = BoundedSemaphore(2)
+    monkeypatch.setattr(grid, "_REQUEST_SLOTS", slots)
+    monkeypatch.setattr(grid, "DEADLINE", 0.05)
+
+    def open_response(req, timeout):
+        started.append(req.full_url)
+        assert release.wait(2)
+        return FakeResponse(b"{}")
+
+    monkeypatch.setattr(grid._OPENER, "open", open_response)
+    try:
+        for _ in range(4):
+            with pytest.raises(TimeoutError):
+                REAL_HTTP_JSON(grid.CARBON_API + "/intensity")
+        assert len(started) == 2
+    finally:
+        release.set()
+        assert slots.acquire(timeout=1)
+        assert slots.acquire(timeout=1)
+        slots.release()
+        slots.release()
+    assert REAL_HTTP_JSON(grid.CARBON_API + "/intensity") == {}
+
+
+def test_dns_timeout_returns_stale_cache_without_replacing_it(monkeypatch):
+    release = Event()
+    slots = BoundedSemaphore(1)
+    monkeypatch.setattr(grid, "_REQUEST_SLOTS", slots)
+    monkeypatch.setattr(grid, "DEADLINE", 0.05)
+    cached = fixture("carbon_sw1a.json")
+    grid._write_cache("carbon-test", cached)
+
+    def open_response(req, timeout):
+        assert release.wait(2)
+        return FakeResponse(b"{}")
+
+    monkeypatch.setattr(grid._OPENER, "open", open_response)
+    try:
+        at, parsed, error = grid.cached_json("carbon-test", grid.CARBON_API + "/intensity",
+                                            grid.parse_carbon, force=True, fetch=REAL_HTTP_JSON)
+        assert at is not None
+        assert parsed == grid.parse_carbon(cached)
+        assert "network: took longer" in error
+    finally:
+        release.set()
+        assert slots.acquire(timeout=1)
+        slots.release()
+    assert grid._read_cache("carbon-test")[1] == cached
+
+
+def test_stalled_dns_does_not_hold_process_open():
+    script = """
+import socket
+import time
+from gridhour import grid
+
+def slow_dns(*args):
+    time.sleep(60)
+
+def open_response(req, timeout):
+    socket.getaddrinfo("api.carbonintensity.org.uk", 443)
+
+socket.getaddrinfo = slow_dns
+grid._OPENER.open = open_response
+grid.DEADLINE = 0.05
+try:
+    grid.http_json(grid.CARBON_API + "/intensity")
+except TimeoutError:
+    print("deadline reached")
+"""
+    # The interpreter and inline program are fixed test inputs, never user-provided commands.
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, timeout=2,  # noqa: S603
+                            check=True)
+    assert result.stdout.strip() == "deadline reached"
