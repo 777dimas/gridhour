@@ -35,6 +35,27 @@ $ gridhour --line
 Jobs are ranked by carbon, by price, or by both (each normalised over the 48 hours and
 averaged). `w` switches between them.
 
+### Deadlines and jobs that can run in pieces
+
+A washing machine runs in one go and rarely has to finish by a set time. A car has to be charged
+before you leave, and it doesn't care whether it charges in one block. A job can say both:
+
+```
+Washing      2h
+EV charge    4h by 07:00 split
+Battery      3h by 16:00 split
+```
+
+* **`by 07:00`** means the window has to finish by the next 07:00, UK time. If it is already
+  past 07:00, that means tomorrow's. An amber `┤` marks the deadline on the job's row. If there
+  isn't enough forecast before it, gridhour says so rather than suggesting a time after it.
+* **`split`** lets gridhour pick the best half hours before the deadline in any order, so a dear
+  half hour sitting between two cheap ones gets skipped. It only splits when the pieces really
+  are better than one continuous block.
+
+Type them in the add box (`a`), or select a job and press `b` for the deadline and `s` to
+allow pieces.
+
 | Scrubbed to tomorrow morning | Compact layout for a tmux split |
 | --- | --- |
 | ![scrubbing](https://raw.githubusercontent.com/777dimas/gridhour/main/docs/scrub.png) | ![compact](https://raw.githubusercontent.com/777dimas/gridhour/main/docs/compact.png) |
@@ -104,7 +125,8 @@ Keys inside the app (`?` lists them all):
 | `Home` `End` `r` | start and end of the forecast, back to now |
 | `↑` `↓` | select a job |
 | `+` `-` | make the selected job 30 minutes longer or shorter |
-| `a` `d` | add a job (`Dryer 1h30`), delete the selected one |
+| `a` `d` | add a job (`Dryer 1h30`, `EV 4h by 07:00 split`), delete the selected one |
+| `b` `s` | selected job: finish by a time, allow it to run in pieces |
 | `Enter` | jump to the selected job's best window |
 | `w` | rank by carbon, price, or both |
 | `p` | change postcode |
@@ -131,7 +153,8 @@ $ gridhour --json | jq '.jobs[] | {name, start: .best.from}'
 "Green" means NESO's forecast grades the half hour as *low* or *very low* for your region.
 If nothing in the next 48 hours makes that grade, the line says `greenest in 9h` instead.
 
-`--json` gives the current half hour, the next green slot, the best window for every job (with
+`--json` gives the current half hour, the next green slot, the best window for every job (its
+deadline and the pieces it runs in included, with
 the carbon and price you would get starting now, for comparison) and the full 48 hour series.
 
 A tmux example:
