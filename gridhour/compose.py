@@ -251,7 +251,9 @@ def draw_chart(cv, y0, axis, slots, hc, hp, win, now, live, h12):
             h = int(round(s.carbon / cmax * hc * 8))
             for r in range(hc):
                 fill = max(0, min(8, h - r * 8))
-                if fill:
+                if fill == 8:
+                    cv.fill(x, y0 + hc - 1 - r, 1, col)     # a coloured cell, not █: no seams between cells
+                elif fill:
                     cv.put(x, y0 + hc - 1 - r, EIGHTHS[fill], col, bg)
         if hp and s.price is not None:
             col = price_color(s.price)
@@ -260,10 +262,16 @@ def draw_chart(cv, y0, axis, slots, hc, hp, win, now, live, h12):
             h = max(1, int(round(abs(s.price) / pmax * hp * 8)))
             for r in range(hp):
                 fill = max(0, min(8, h - r * 8))
-                if fill == 8:
-                    cv.put(x, axis_y + 1 + r, "█", col, bg)
+                y = axis_y + 1 + r
+                # hanging bars end in a top-aligned block; there are only ▔ (1/8) and ▀ (1/2), so the end
+                # snaps to them rather than faking other heights with inverted colours, which leaves a
+                # dark step with a coloured sliver in many fonts
+                if fill >= 6:
+                    cv.fill(x, y, 1, col)
+                elif fill >= 3:
+                    cv.put(x, y, "▀", col, bg)
                 elif fill:
-                    cv.put(x, axis_y + 1 + r, EIGHTHS[8 - fill], bg, col)
+                    cv.put(x, y, "▔", col, bg)
         elif hp:
             cv.put(x, axis_y + 1, "·", C.BORDER, bg)
     hour_ticks(cv, axis_y, axis, h12)

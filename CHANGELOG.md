@@ -5,6 +5,18 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-04
+
+### Fixed
+
+* Chart bars no longer show seams between cells or dark steps at the ends of the price bars in
+  terminals whose block glyphs do not fill the whole cell. Solid cells are now drawn as coloured
+  backgrounds, and price bars end in real top-aligned blocks instead of inverted colours.
+
+### Changed
+
+* README: an animated demo at the top; a social preview card for link previews.
+
 ## [0.1.1] - 2026-10-04
 
 No changes to the program itself. This release refreshes the description on PyPI.
@@ -26,6 +38,7 @@ First release.
   for small panes.
 * Works offline from cache. Talks only to the two APIs over HTTPS.
 
-[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/777dimas/gridhour/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/777dimas/gridhour/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/777dimas/gridhour/releases/tag/v0.1.0
