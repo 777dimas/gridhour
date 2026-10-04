@@ -46,9 +46,13 @@ The simplest way is [pipx](https://pipx.pypa.io/), which installs the `gridhour`
 user in its own environment:
 
 ```sh
-pipx install gridhour
+pipx install gridhour                                        # from PyPI
+pipx install git+https://github.com/777dimas/gridhour        # or straight from GitHub
 gridhour SW1A 1AA
 ```
+
+Either line is enough. The second one is there for when PyPI is unreachable; it builds the latest
+code on `main`, which can be ahead of the release.
 
 No pipx yet? `sudo apt install pipx` on Debian and Ubuntu, `brew install pipx` on macOS. If your
 shell cannot find `gridhour` afterwards, run `pipx ensurepath` once and open a new terminal.
@@ -72,7 +76,7 @@ gridhour --reset && pipx uninstall gridhour    # --reset first deletes the saved
 
 * **pip**, in a virtual environment: `pip install gridhour`.
 * **From a clone**, nothing to build: `python3 -m gridhour SW1A`.
-* **The newest unreleased code**: `pipx install git+https://github.com/777dimas/gridhour`.
+* **A specific release from GitHub**: `pipx install git+https://github.com/777dimas/gridhour@v0.1.0`.
 
 Every release on PyPI carries signed build provenance; [SECURITY.md](https://github.com/777dimas/gridhour/blob/main/SECURITY.md#supply-chain)
 shows how to check a file against it.
