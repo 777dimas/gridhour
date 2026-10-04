@@ -5,6 +5,14 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-04
+
+No changes to the program itself. This release refreshes the description on PyPI.
+
+* README: install from PyPI with `pipx install gridhour`, with the GitHub install next to it in
+  case PyPI is unreachable; updating, removing and `pipx run` / `uvx` are documented.
+* CI and release builds run on pinned runner images (Ubuntu 24.04, macOS 26) instead of `-latest`.
+
 ## [0.1.0] - 2026-10-04
 
 First release.
@@ -18,5 +26,6 @@ First release.
   for small panes.
 * Works offline from cache. Talks only to the two APIs over HTTPS.
 
-[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/777dimas/gridhour/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/777dimas/gridhour/releases/tag/v0.1.0
