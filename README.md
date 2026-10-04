@@ -15,9 +15,11 @@ $ gridhour --line
 ⚡ 142g · 14p · green in 2h
 ```
 
-![gridhour main view](https://raw.githubusercontent.com/777dimas/gridhour/main/docs/main.png)
+![gridhour demo: scrubbing the 48 hour timeline, jumping to the best window, switching ranking and themes](https://raw.githubusercontent.com/777dimas/gridhour/main/docs/demo.gif)
 
 ## What you see
+
+![gridhour main view](https://raw.githubusercontent.com/777dimas/gridhour/main/docs/main.png)
 
 * **The chart.** Carbon intensity (gCO₂/kWh) rises above the time axis, the Agile unit price
   hangs below it. Green is clean or cheap, red is dirty or dear, blue is a plunge price where
