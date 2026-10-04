@@ -6,7 +6,7 @@ repos:
       - id: check-toml
       - id: check-merge-conflict
       - id: check-added-large-files
-        args: [--maxkb=600]
+        args: [--maxkb=1500]   # docs/demo.gif is about 1.2 MB
       - id: detect-private-key
       - id: end-of-file-fixer
         exclude: ^tests/fixtures/

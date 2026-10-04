@@ -20,6 +20,7 @@ ruff check .
 coverage run -m pytest && coverage report     # CI fails below 80%
 python -m gridhour --once --size 120x40       # one frame of the UI with today's data
 pip install --require-hashes -r requirements/docs.txt && python tools/screenshots.py   # docs/*.png
+python tools/demo.py                          # docs/demo.gif, the animation at the top of the README
 ```
 
 The tests replay real API responses stored in `tests/fixtures/`. If you need new fixtures, fetch

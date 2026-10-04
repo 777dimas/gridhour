@@ -7,6 +7,7 @@ Frames are drawn straight from the Canvas (characters plus colours), so there is
 Block characters are painted as rectangles so the bars line up without gaps.
 """
 import argparse
+import functools
 import os
 import sys
 import tempfile
@@ -29,6 +30,7 @@ ROOT = os.path.join(os.path.dirname(__file__), "..")
 FIXTURE_NOW = datetime(2026, 10, 3, 22, 46, tzinfo=UTC)
 
 
+@functools.cache
 def font(bold=False):
     name = "DejaVuSansMono-Bold.ttf" if bold else "DejaVuSansMono.ttf"
     for d in FONT_DIRS:
@@ -38,7 +40,8 @@ def font(bold=False):
     sys.exit("DejaVu Sans Mono not found")
 
 
-def render(cv, path, pad=10):
+def draw(cv, pad=10):
+    """The canvas as a picture: one CW x CH cell per character."""
     img = Image.new("RGB", (cv.w * CW + pad * 2, cv.h * CH + pad * 2), C.BG)
     d = ImageDraw.Draw(img)
     regular, bold = font(), font(True)
@@ -54,7 +57,59 @@ def render(cv, path, pad=10):
                 d.rectangle([px, py + CH - h, px + CW - 1, py + CH - 1], fill=fg)
             elif ch != " ":
                 d.text((px, py + 1), ch, font=bold if b else regular, fill=fg)
-    img.save(path)
+    return img
+
+
+def render(cv, path, pad=10):
+    draw(cv, pad).save(path)
+    print("wrote", path)
+
+
+def fixture_state(now=FIXTURE_NOW, live=False):
+    """A State on the recorded London data (or today's, with live=True), with a throwaway cache."""
+    os.environ["XDG_CACHE_HOME"] = tempfile.mkdtemp()
+    st = State()
+    st.persist = False
+    st.postcode = "SW1A"
+    st.fc = load(now, "SW1A", force=True, fetch=None if live else fixture_fetch)
+    return st
+
+
+def big_font(size, bold=True):
+    name = "DejaVuSansMono-Bold.ttf" if bold else "DejaVuSansMono.ttf"
+    for d in FONT_DIRS:
+        p = os.path.join(d, name)
+        if os.path.exists(p):
+            return ImageFont.truetype(p, size)
+    sys.exit("DejaVu Sans Mono not found")
+
+
+def social_preview(st, now, path):
+    """1280x640 card for link previews (GitHub: Settings -> General -> Social preview)."""
+    apply_theme("carbon")
+    st.frozen = None
+    shot = draw(compose(92, 24, st, now, now), pad=0)
+    card = Image.new("RGB", (1280, 640), C.BG)
+    d = ImageDraw.Draw(card)
+    # the UI on the right, cut off by the edge on purpose
+    card.paste(shot, (600, 150))
+    d.rectangle([0, 0, 580, 640], fill=C.BG)
+    logo = big_font(46)
+    lw = int(d.textlength("ϟ gridhour", font=logo))
+    d.rounded_rectangle([60, 70, 60 + lw + 52, 150], radius=14, fill=C.ACCENT)
+    d.text((86, 82), "ϟ gridhour", font=logo, fill=C.INK)
+    y = 200
+    for line in ("When British", "electricity is", "green and cheap"):
+        d.text((60, y), line, font=big_font(40), fill=C.WHITE)
+        y += 54
+    d.text((60, 390), "48 h of carbon intensity and", font=big_font(22, False), fill=C.DIM)
+    d.text((60, 420), "Octopus Agile prices, and the", font=big_font(22, False), fill=C.DIM)
+    d.text((60, 450), "best time to run each job.", font=big_font(22, False), fill=C.DIM)
+    cmd = big_font(22)
+    cw = int(d.textlength("$ pipx install gridhour", font=cmd))
+    d.rounded_rectangle([60, 520, 60 + cw + 40, 572], radius=10, fill=C.BAR_BG)
+    d.text((80, 531), "$ pipx install gridhour", font=cmd, fill=C.ACCENT)
+    card.save(path)
     print("wrote", path)
 
 
@@ -72,12 +127,8 @@ def main():
     ap.add_argument("--live", action="store_true")
     ap.add_argument("--only", help="render one shot by name")
     args = ap.parse_args()
-    os.environ["XDG_CACHE_HOME"] = tempfile.mkdtemp()
     now = datetime.now(UTC).replace(microsecond=0) if args.live else FIXTURE_NOW
-    st = State()
-    st.persist = False
-    st.postcode = "SW1A"
-    st.fc = load(now, "SW1A", force=True, fetch=None if args.live else fixture_fetch)
+    st = fixture_state(now, args.live)
     out = os.path.join(ROOT, "docs")
     os.makedirs(out, exist_ok=True)
     shots = {
@@ -86,6 +137,8 @@ def main():
         "light": dict(W=120, H=40, theme="daylight"),
         "scrub": dict(W=120, H=40, frozen=2 * 3600 * 6),
     }
+    if not args.only or args.only == "social":
+        social_preview(st, now, os.path.join(out, "social-preview.png"))
     for name, o in shots.items():
         if args.only and name != args.only:
             continue
