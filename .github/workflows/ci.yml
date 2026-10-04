@@ -17,7 +17,7 @@ concurrency:
 jobs:
   lint:
     name: CI / lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -31,6 +31,12 @@ jobs:
           python-version: "3.13"
       - run: pip install --require-hashes -r requirements/dev.txt
       - run: ruff check --output-format=github .
+      - name: Runner images are pinned, never *-latest
+        run: |
+          if grep -rnE '^[[:space:]]*(runs-on|os):[^#]*-latest' .github/workflows; then
+            echo "::error::pin runner images to a version (ubuntu-24.04, macos-26), not *-latest"
+            exit 1
+          fi
 
   test:
     name: CI / test (${{ matrix.os }}, py${{ matrix.python }})
@@ -39,7 +45,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-24.04, macos-26]
         python: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -58,7 +64,7 @@ jobs:
 
   build:
     name: CI / build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
