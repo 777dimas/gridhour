@@ -124,9 +124,18 @@ def parse_job(text):
     if len(words) >= 2 and words[-2].lower() == "by":
         deadline = parse_clock(words.pop())
         words.pop()
+    tail = (" by " + deadline if deadline else "") + (" split" if split else "")
     if len(words) < 2:
+        if words and tail:                          # "EV by 07:00 split": the duration is missing
+            raise ValueError("how long does it run? e.g. '%s 4h%s'" % ((label(words[0], 18) or "EV"), tail))
         raise ValueError("type a name and a duration, e.g. 'Dryer 1h30' or 'EV 4h by 07:00 split'")
-    minutes = parse_duration(words.pop())
+    try:
+        minutes = parse_duration(words[-1])
+    except ValueError:
+        if tail:
+            raise ValueError("how long does it run? e.g. '%s 4h%s'" % (label(" ".join(words), 18), tail)) from None
+        raise
+    words.pop()
     name = (label(" ".join(words), 18) or "").strip()
     if not name:
         raise ValueError("give the job a name")
