@@ -26,6 +26,7 @@ FONT_DIRS = ["/usr/share/fonts/truetype", "/usr/share/fonts/truetype/dejavu", "/
              "/Library/Fonts", os.path.expanduser("~/Library/Fonts")]
 CW, CH, SIZE = 9, 19, 15
 LOWER = " ▁▂▃▄▅▆▇█"
+UPPER = {"▔": 1, "▀": 4}         # eighths filled from the top
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 FIXTURE_NOW = datetime(2026, 10, 3, 22, 46, tzinfo=UTC)
 
@@ -55,6 +56,8 @@ def draw(cv, pad=10):
             if ch in LOWER and ch != " ":
                 h = round(CH * LOWER.index(ch) / 8)
                 d.rectangle([px, py + CH - h, px + CW - 1, py + CH - 1], fill=fg)
+            elif ch in UPPER:
+                d.rectangle([px, py, px + CW - 1, py + round(CH * UPPER[ch] / 8) - 1], fill=fg)
             elif ch != " ":
                 d.text((px, py + 1), ch, font=bold if b else regular, fill=fg)
     return img
