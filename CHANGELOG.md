@@ -5,6 +5,14 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+* Jobs can have a deadline and may run in pieces: `EV charge 4h by 07:00 split` picks the best
+  half hours before 07:00, in any order. Add them in the add box, or press `b` (deadline) and
+  `s` (pieces) on a selected job. The default EV charge job now uses `by 07:00 split`.
+* `--json` gives each job's `deadline`, `deadline_at`, `split` and the `parts` of its best window.
+  `--line --best "4h by 07:00 split"` works too.
+
 ## [0.1.2] - 2026-10-04
 
 ### Fixed

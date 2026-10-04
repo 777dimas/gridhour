@@ -2,9 +2,10 @@
 import json
 import os
 import time
+from dataclasses import replace
 
 from .grid import GSP_REGION, REGIONS, Forecast, normalize_postcode, number
-from .plan import DEFAULT_JOBS, MODES, Job
+from .plan import DEFAULT_JOBS, MODES, Job, parse_clock
 from .safe import atomic_write, label
 from .themes import C, apply_theme
 
@@ -31,7 +32,7 @@ class State:
         self.region_id = None       # used when there is no postcode; None = all of GB
         self.gsp = None             # Octopus region letter override
         self.prices = True
-        self.jobs = [Job(j.name, j.minutes) for j in DEFAULT_JOBS]
+        self.jobs = [replace(j) for j in DEFAULT_JOBS]
         self.sel = 0                # selected job
         self.mode = "both"          # green | cheap | both
         self.h12 = False
@@ -91,10 +92,11 @@ def state_from_config():
         try:
             name = label(j["name"], 18)
             minutes = int(number(j["minutes"], 30, 24 * 60)) // 30 * 30
-        except (KeyError, TypeError, ValueError):
+            deadline = parse_clock(j["deadline"]) if isinstance(j.get("deadline"), str) else None
+        except (KeyError, TypeError, ValueError, AttributeError):
             continue
         if name and name.strip():
-            jobs.append(Job(name.strip(), minutes))
+            jobs.append(Job(name.strip(), minutes, deadline, j.get("split") is True))
     if jobs:
         st.jobs = jobs
     st.mode = cfg["mode"] if _choice(cfg.get("mode"), MODES) else "both"
