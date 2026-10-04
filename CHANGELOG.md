@@ -5,6 +5,8 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-04
+
 ### Added
 
 * Jobs can have a deadline and may run in pieces: `EV charge 4h by 07:00 split` picks the best
@@ -46,7 +48,8 @@ First release.
   for small panes.
 * Works offline from cache. Talks only to the two APIs over HTTPS.
 
-[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/777dimas/gridhour/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/777dimas/gridhour/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/777dimas/gridhour/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/777dimas/gridhour/releases/tag/v0.1.0
