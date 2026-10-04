@@ -5,6 +5,13 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+* The deadline box (`b`) also takes `by 07:00`. If you type a whole job there, it now says to
+  press Esc and then `a`, instead of only "deadlines look like 07:00".
+* Adding a job like `EV by 07:00 split` without a duration now asks how long it runs and shows
+  the corrected line (`EV 4h by 07:00 split`).
+
 ## [0.2.0] - 2026-10-04
 
 ### Added

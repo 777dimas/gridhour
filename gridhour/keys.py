@@ -136,10 +136,17 @@ def _submit(st):
         return None
     if st.prompt == "deadline":
         text = st.buf.strip()
+        if text.lower().startswith("by "):        # "by 07:00", the way a deadline reads in a job
+            text = text[3:].strip()
         try:
             st.job.deadline = plan.parse_clock(text) if text else None
         except ValueError as e:
             st.err = str(e)
+            try:
+                plan.parse_job(st.buf)
+                st.err = "that's a whole new job: Esc, then a to add it"
+            except ValueError:
+                pass
             return None
         st.prompt = None
         st.save()

@@ -150,3 +150,23 @@ def test_screen_shows_deadline_and_explains_missing_window(st):
     text = "\n".join(compose(120, 40, st, NOW, NOW).text())
     assert "┤" in text
     assert "not enough forecast before 00:30 for 10h by 00:30" in text
+
+
+def test_deadline_prompt_accepts_by_and_explains_a_whole_job(st):
+    st.sel = 0
+    for k in ["b", *"\x7f" * 10, *"by 6:30am", "\r"]:
+        handle_key(st, k, NOW)
+    assert st.job.deadline == "06:30" and st.prompt is None
+    for k in ["b", *"\x7f" * 10, *"EV charge 4h by 07:00 split", "\r"]:
+        handle_key(st, k, NOW)
+    assert st.prompt == "deadline" and "new job" in st.err and "press a" not in st.err
+    assert st.job.deadline == "06:30"                   # unchanged
+
+
+@pytest.mark.parametrize("text,hint", [("EV by 07:00 split", "'EV 4h by 07:00 split'"),
+                                       ("Car charge by 7am", "'Car charge 4h by 07:00'"),
+                                       ("Battery split", "'Battery 4h split'")])
+def test_missing_duration_says_so(text, hint):
+    with pytest.raises(ValueError, match="how long does it run") as e:
+        plan.parse_job(text)
+    assert hint in str(e.value)
