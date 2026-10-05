@@ -5,6 +5,11 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+* `--ical` exports the best job windows as an iCalendar document, with one event
+  per continuous part, UTC timestamps and stable UIDs.
+
 ### Changed
 
 * The deadline box (`b`) also takes `by 07:00`. If you type a whole job there, it now says to

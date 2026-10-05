@@ -9,7 +9,7 @@ from . import __version__
 from .app import run, utcnow
 from .compose import MAX_H, MAX_W, compose
 from .grid import cache_dir, load, normalize_postcode, parse_time, region_from_arg
-from .output import json_output, line_output, watch
+from .output import ical_output, json_output, line_output, watch
 from .plan import MODES, parse_job
 from .state import config_path, state_from_config
 from .themes import THEME_ORDER, apply_theme
@@ -59,6 +59,7 @@ def main(argv=None):
     ap.add_argument("--tmux", action="store_true", help="like --line with tmux colour codes")
     ap.add_argument("--watch", action="store_true", help="the one-liner, updating in place")
     ap.add_argument("--json", action="store_true", help="print JSON and exit")
+    ap.add_argument("--ical", action="store_true", help="print an iCalendar document and exit")
     ap.add_argument("--once", action="store_true", help="print one frame of the full UI and exit")
     ap.add_argument("--size", help="WxH for --once (default: terminal size)")
     ap.add_argument("--theme", choices=THEME_ORDER, help="colour theme")
@@ -100,10 +101,12 @@ def main(argv=None):
     if args.watch:
         watch(st, utcnow, "ansi" if sys.stdout.isatty() else "plain", best)
         return
-    if args.line or args.tmux or args.json or args.once:
+    if args.line or args.tmux or args.json or args.once or args.ical:
         now = at or utcnow().replace(microsecond=0)
         st.fc = load(now, st.postcode, st.region_id, st.gsp, st.prices)
-        if args.json:
+        if args.ical:
+            sys.stdout.buffer.write(ical_output(st, now).encode("utf-8"))
+        elif args.json:
             print(json_output(st, now))
         elif args.once:
             W, H = size or shutil.get_terminal_size((120, 40))
