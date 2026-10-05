@@ -11,8 +11,10 @@ import re
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import Future
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from threading import BoundedSemaphore, Thread
 
 from . import __version__
 from .safe import atomic_write, label
@@ -289,15 +291,45 @@ class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
 
 
 _OPENER = urllib.request.build_opener(_RefuseRedirects)
+# A resolver cannot be cancelled; cap abandoned requests and never let them delay process exit.
+_REQUEST_SLOTS = BoundedSemaphore(2)
 
 
 def http_json(url, timeout=12):
     if not isinstance(url, str) or not url.startswith(ALLOWED):
         raise ValueError("refusing to fetch %r" % url)
+    deadline = time.monotonic() + DEADLINE
+    slots = _REQUEST_SLOTS
+    if not slots.acquire(timeout=DEADLINE):
+        raise TimeoutError("took longer than %s seconds" % DEADLINE)
+    result = Future()
+
+    def fetch():
+        try:
+            result.set_result(_http_json(url, timeout, deadline))
+        except Exception as e:  # noqa: BLE001 -- forward worker failures to the calling thread
+            result.set_exception(e)
+        finally:
+            slots.release()
+
+    worker = Thread(target=fetch, daemon=True)
+    try:
+        worker.start()
+    except RuntimeError:
+        slots.release()
+        raise
+    try:
+        return result.result(timeout=max(0, deadline - time.monotonic()))
+    except TimeoutError:
+        raise TimeoutError("took longer than %s seconds" % DEADLINE) from None
+
+
+def _http_json(url, timeout, deadline):
+    if time.monotonic() >= deadline:
+        raise TimeoutError("request deadline expired")
     # scheme and host are checked above and redirects are refused, so S310 cannot apply
     req = urllib.request.Request(url, headers={"User-Agent": "gridhour/" + __version__,  # noqa: S310
                                                "Accept": "application/json"})
-    deadline = time.monotonic() + DEADLINE
     chunks, size = [], 0
     with _OPENER.open(req, timeout=timeout) as r:
         if not r.geturl().startswith(ALLOWED):

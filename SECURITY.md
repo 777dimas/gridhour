@@ -17,8 +17,9 @@ Only the latest release gets fixes.
 first half of your postcode, for example `SW1A`) and `api.octopus.energy` (with your region letter).
 
 * `grid.http_json` refuses any other scheme or host, refuses redirects, and checks the final URL.
-* A response may be 4 MB at most. Once connected, the whole body must arrive within 25 seconds,
-  however slowly it trickles in (connecting and DNS have their own 12 second timeout).
+* A response may be 4 MB at most, and the whole request, DNS lookup included, must finish within
+  25 seconds, however slowly it trickles in. Python cannot cancel a stuck resolver, so at most two
+  such requests are left running in the background.
 * No API keys, no accounts, no telemetry. `GRIDHOUR_OFFLINE=1` turns the network off.
 
 **Untrusted input.** API responses, the cache and the config file are all treated as hostile.

@@ -17,6 +17,11 @@ and the project uses [semantic versioning](https://semver.org/).
 * Adding a job like `EV by 07:00 split` without a duration now asks how long it runs and shows
   the corrected line (`EV 4h by 07:00 split`).
 
+### Fixed
+
+* Network requests now return within the overall deadline even when DNS resolution stalls,
+  allowing status lines to fall back to cached forecasts. Outstanding requests are capped.
+
 ## [0.2.0] - 2026-10-04
 
 ### Added
