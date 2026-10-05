@@ -1,4 +1,5 @@
 """Non-interactive output: the one-liner for status bars, tmux codes, JSON and --watch."""
+import hashlib
 import json
 import sys
 import time
@@ -9,6 +10,50 @@ from .compose import hm
 from .grid import iso, load
 from .safe import label
 from .themes import C, carbon_color, price_color
+
+
+def _ical_time(value):
+    """Format a datetime as an iCalendar UTC timestamp."""
+    return value.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _ical_text(text):
+    """Escape special characters in iCalendar text."""
+    return (text.replace("\\", "\\\\")
+            .replace("\r\n", "\n").replace("\r", "\n")
+            .replace("\n", "\\n")
+            .replace(";", "\\;").replace(",", "\\,"))
+
+
+def _ical_uid(name, start, part):
+    """Identify an event by job name, UK window date and part number."""
+    day = start.astimezone(plan.UK).date().isoformat()
+    key = "%s|%s|%d" % (name, day, part)
+    # This hash identifies an event; it is not a security primitive.
+    return hashlib.sha1(
+        key.encode("utf-8"), usedforsecurity=False
+    ).hexdigest() + "@gridhour"
+
+
+def _ical_fold(line):
+    """Fold at 75 UTF-8 bytes without splitting a character."""
+    parts = []
+    current = ""
+    size = 0
+    for ch in line:
+        width = len(ch.encode("utf-8"))
+        if size + width > 75:
+            parts.append(current)
+            current, size = " ", 1
+        current += ch
+        size += width
+    parts.append(current)
+    return "\r\n".join(parts)
+
+
+def _ical_document(lines):
+    """Fold content lines and terminate each with CRLF."""
+    return "\r\n".join(_ical_fold(line) for line in lines) + "\r\n"
 
 
 def _lit(text, mode):
@@ -64,6 +109,45 @@ def line_output(st, now, color="plain", best=None):
         phrase, ok = green_phrase(fc.slots, now, st.h12)
         parts.append(_fg(C.GREEN, phrase, color) if ok else _lit(phrase, color))
     return "⚡ " + " · ".join(parts)
+
+
+def ical_output(st, now):
+    """Export the best job windows as an iCalendar document."""
+    fc = st.fc
+    sc = plan.scores(fc.slots, st.mode)
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//gridhour//Job windows//EN",
+    ]
+    for job in st.jobs:
+        w = plan.best_window(fc.slots, sc, job, now)
+        if w is None:
+            continue
+
+        name = label(job.name) or "Job"
+        carbon = "unknown" if w.carbon is None else "%.1f gCO2/kWh" % w.carbon
+        price = "unknown" if w.price is None else "%.2f p/kWh" % w.price
+        description = "Best window average: carbon %s; price %s" % (carbon, price)
+        parts = w.parts()
+        for number, (first, last) in enumerate(parts, start=1):
+            summary = "%s (gridhour)" % name
+            if len(parts) > 1:
+                summary += " (part %d of %d)" % (number, len(parts))
+
+            lines.extend([
+                "BEGIN:VEVENT",
+                "UID:" + _ical_uid(name, w.start, number),
+                "DTSTAMP:" + _ical_time(now),
+                "DTSTART:" + _ical_time(fc.slots[first].start),
+                "DTEND:" + _ical_time(fc.slots[last].end),
+                "SUMMARY:" + _ical_text(summary),
+                "DESCRIPTION:" + _ical_text(description),
+                "END:VEVENT",
+            ])
+
+    lines.append("END:VCALENDAR")
+    return _ical_document(lines)
 
 
 def json_output(st, now):

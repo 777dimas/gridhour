@@ -157,6 +157,16 @@ If nothing in the next 48 hours makes that grade, the line says `greenest in 9h`
 deadline and the pieces it runs in included, with
 the carbon and price you would get starting now, for comparison) and the full 48 hour series.
 
+Export the best job windows to an iCalendar file:
+
+```sh
+gridhour --ical > jobs.ics
+```
+
+Import `jobs.ics` into your calendar app. Each continuous part of a job's best
+window becomes a separate event. Events include the best window's average carbon
+intensity and price, with UTC timestamps and stable UIDs for repeat imports.
+
 A tmux example:
 
 ```tmux
@@ -209,7 +219,7 @@ More in [CONTRIBUTING.md](https://github.com/777dimas/gridhour/blob/main/CONTRIB
 | `canvas.py` | character grid with colours, rendered to ANSI |
 | `safe.py` | cleaning outside text, private atomic file writes |
 | `app.py`, `keys.py` | the terminal loop and every key |
-| `output.py` | `--line`, `--tmux`, `--json`, `--watch` |
+| `output.py` | `--line`, `--tmux`, `--json`, `--ical`, `--watch` |
 | `state.py`, `themes.py`, `cli.py` | settings, colours, arguments |
 
 ## Licence

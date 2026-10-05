@@ -50,3 +50,15 @@ def test_reset(capsys):
 def test_needs_a_terminal():
     with pytest.raises(SystemExit, match="interactive terminal"):
         cli.main([])
+
+
+def test_ical(capsys):
+    cli.main(["SW1A", "--ical", "--at", "2026-10-03T22:46Z"])
+    out = capsys.readouterr().out
+
+    assert out.startswith("BEGIN:VCALENDAR\r\n")
+    assert out.endswith("END:VCALENDAR\r\n")
+    assert "BEGIN:VEVENT\r\n" in out
+    assert "SUMMARY:Washing (gridhour)\r\n" in out
+    assert "DTSTAMP:20261003T224600Z\r\n" in out
+    assert "\n" not in out.replace("\r\n", "")
