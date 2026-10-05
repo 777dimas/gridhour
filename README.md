@@ -124,6 +124,13 @@ gridhour --reset && pipx uninstall gridhour    # --reset first deletes the saved
 Every release on PyPI carries signed build provenance; [SECURITY.md](https://github.com/777dimas/gridhour/blob/main/SECURITY.md#supply-chain)
 shows how to check a file against it.
 
+### Not on Octopus yet?
+
+**Ad · referral link.** If you switch your home to Octopus Energy with
+[my referral link](https://share.octopus.energy/cheeky-melon-215), we each get £50 account
+credit (as of October 2026). gridhour works exactly the same whether you use it or not, and it
+isn't affiliated with Octopus.
+
 ## Usage
 
 ```sh
