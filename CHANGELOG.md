@@ -5,10 +5,12 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-05
+
 ### Added
 
 * `--ical` exports the best job windows as an iCalendar document, with one event
-  per continuous part, UTC timestamps and stable UIDs.
+  per continuous part, UTC timestamps and stable UIDs. Thanks @zhangbo-yc (#17).
 
 ### Changed
 
@@ -16,11 +18,14 @@ and the project uses [semantic versioning](https://semver.org/).
   press Esc and then `a`, instead of only "deadlines look like 07:00".
 * Adding a job like `EV by 07:00 split` without a duration now asks how long it runs and shows
   the corrected line (`EV 4h by 07:00 split`).
+* README: how to get pipx on Fedora, the RHEL family and openSUSE, and what to do where the
+  system Python is older than 3.11. It also gains a referral link for Octopus, labelled as an ad.
 
 ### Fixed
 
 * Network requests now return within the overall deadline even when DNS resolution stalls,
   allowing status lines to fall back to cached forecasts. Outstanding requests are capped.
+  Thanks @jnohclee-rgb (#12).
 
 ## [0.2.0] - 2026-10-04
 
@@ -65,7 +70,8 @@ First release.
   for small panes.
 * Works offline from cache. Talks only to the two APIs over HTTPS.
 
-[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/777dimas/gridhour/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/777dimas/gridhour/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/777dimas/gridhour/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/777dimas/gridhour/compare/v0.1.0...v0.1.1
