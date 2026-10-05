@@ -206,6 +206,8 @@ def draw_bracket(cv, y, axis, win, h12):
     else:
         cv.put(x0 + a, y, "▾", color)
     label = " %s %s–%s " % (win.job.name, hm(win.start, h12), hm(win.end, h12))
+    if len(win.parts()) > 1:
+        label = " %s, %d pieces, %s–%s " % (win.job.name, len(win.parts()), hm(win.start, h12), hm(win.end, h12))
     if len(label) <= b - a - 1:
         cv.put(x0 + a + (b - a + 1 - len(label)) // 2, y, label, C.WHITE, None, True)
     else:
@@ -219,7 +221,7 @@ def draw_chart(cv, y0, axis, slots, hc, hp, win, now, live, h12):
     cmax = nice_ceiling(max((s.carbon or 0) for s in slots), 100)
     prices = [abs(s.price) for s in slots if s.price is not None]
     pmax = nice_ceiling(max(prices), 10) if prices else 10
-    win_cols = set(axis.span(win.first, win.last)) if win else set()
+    win_cols = {c for c in range(axis.w) if win.covers(axis.slot(c))} if win else set()
     cur_col = axis.col(floor_slot(now))
     now_col = axis.col(floor_slot(live))
     win_bg = mix(C.BG, C.CLEAN, 0.08)
@@ -439,15 +441,22 @@ def draw_jobs(cv, y, axis, st, slots, sc, wins, mode, now, live, room):
             v = sc[k]
             if s.start < now_slot or v is None:
                 cells.append((C.BG if s.start < now_slot else C.BAR_BG, None))
-            elif win and win.first <= k <= win.last:
+            elif win and win.covers(k):
                 cells.append((score_color(v), None))
             else:
                 cells.append((mix(C.BAR_BG, score_color(v), 0.28), None))
         sel = i == st.sel
         strip_row(cv, y, axis, job.name, plan.fmt_duration(job.minutes), cells, now, live,
                   C.WHITE if sel else C.TEXT, sel)
+        due = plan.deadline_at(job, live)
+        due_col = axis.col(due - SLOT) if due else None
+        if due_col is not None and due_col != axis.col(floor_slot(now)):
+            cv.put(axis.x0 + due_col, y, "┤", C.AMBER, C.BG, True)     # last half hour before the deadline
         if win:
             label_window(cv, y, axis, win, st.h12, live)
+        elif job.deadline:
+            cv.put(axis.x0 + 1, y, "not enough forecast before %s for %s" % (hm(due, st.h12) if due else
+                                                                           job.deadline, job.describe()), C.DIM)
         else:
             cv.put(axis.x0 + 1, y, "no %s window in the forecast yet" % plan.fmt_duration(job.minutes), C.DIM)
         y += 1
@@ -457,7 +466,11 @@ def draw_jobs(cv, y, axis, st, slots, sc, wins, mode, now, live, room):
 
 def label_window(cv, y, axis, win, h12, live):
     cols = axis.span(win.first, win.last)
-    text = " %s–%s" % (hm(win.start, h12), hm(win.end, h12))
+    pieces = len(win.parts())
+    if pieces > 1:
+        text = " %d pieces, done %s" % (pieces, hm(win.end, h12))
+    else:
+        text = " %s–%s" % (hm(win.start, h12), hm(win.end, h12))
     if win.carbon is not None:
         text += " · %dg" % round(win.carbon)
     if win.price is not None:
@@ -475,9 +488,11 @@ def label_window(cv, y, axis, win, h12, live):
 
 def draw_footer(cv, st, fc, now, live, win, slots, W, H):
     y = H - 2
-    if st.prompt in ("job", "postcode"):
-        q = "Add a job, name and duration (Dryer 1h30): " if st.prompt == "job" else \
-            "Postcode (SW1A 1AA, or just SW1A), empty for all of GB: "
+    if st.prompt in ("job", "postcode", "deadline"):
+        q = {"job": "Add a job (Dryer 1h30, or EV 4h by 07:00 split): ",
+             "postcode": "Postcode (SW1A 1AA, or just SW1A), empty for all of GB: ",
+             "deadline": "Finish %s by (07:00, 7am), empty for no deadline: " % (st.job.name if st.job else "")
+             }[st.prompt]
         cv.fill(0, y, W, C.PANEL_BG)
         cv.put(1, y, q, C.AMBER, C.PANEL_BG, True)
         cv.put(1 + len(q), y, st.buf + "▏", C.WHITE, C.PANEL_BG)
@@ -494,6 +509,8 @@ def draw_footer(cv, st, fc, now, live, win, slots, W, H):
             parts = [(" start %s" % ("now" if start_in.total_seconds() <= 0
                                      else day_hm(win.start, live, st.h12) + ", in %s" % plan.fmt_in(start_in)),
                       C.TEXT)]
+            if len(win.parts()) > 1:
+                parts.append((", %d pieces, done %s" % (len(win.parts()), hm(win.end, st.h12)), C.TEXT))
             if win.carbon is not None and g_now:
                 d = (win.carbon - g_now) / g_now * 100
                 parts.append((" · %dg" % round(win.carbon), carbon_color(win.carbon)))
@@ -541,7 +558,8 @@ HELP = [
     ("r", "back to now"),
     ("↑ ↓ j k", "select a job"),
     ("+ -", "make the selected job 30 minutes longer or shorter"),
-    ("a d", "add a job, delete the selected one"),
+    ("a d", "add a job (EV 4h by 07:00 split), delete one"),
+    ("b s", "selected job: finish-by time, may run in pieces"),
     ("Enter", "jump the cursor to the selected job's best window"),
     ("w", "rank windows by carbon, by price, or both"),
     ("p", "set your postcode (region and Agile prices follow it)"),

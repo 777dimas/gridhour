@@ -5,10 +5,32 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+* `--ical` exports the best job windows as an iCalendar document, with one event
+  per continuous part, UTC timestamps and stable UIDs.
+
+### Changed
+
+* The deadline box (`b`) also takes `by 07:00`. If you type a whole job there, it now says to
+  press Esc and then `a`, instead of only "deadlines look like 07:00".
+* Adding a job like `EV by 07:00 split` without a duration now asks how long it runs and shows
+  the corrected line (`EV 4h by 07:00 split`).
+
 ### Fixed
 
 * Network requests now return within the overall deadline even when DNS resolution stalls,
   allowing status lines to fall back to cached forecasts. Outstanding requests are capped.
+
+## [0.2.0] - 2026-10-04
+
+### Added
+
+* Jobs can have a deadline and may run in pieces: `EV charge 4h by 07:00 split` picks the best
+  half hours before 07:00, in any order. Add them in the add box, or press `b` (deadline) and
+  `s` (pieces) on a selected job. The default EV charge job now uses `by 07:00 split`.
+* `--json` gives each job's `deadline`, `deadline_at`, `split` and the `parts` of its best window.
+  `--line --best "4h by 07:00 split"` works too.
 
 ## [0.1.2] - 2026-10-04
 
@@ -43,7 +65,8 @@ First release.
   for small panes.
 * Works offline from cache. Talks only to the two APIs over HTTPS.
 
-[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/777dimas/gridhour/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/777dimas/gridhour/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/777dimas/gridhour/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/777dimas/gridhour/releases/tag/v0.1.0

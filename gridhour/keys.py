@@ -19,7 +19,7 @@ def _scrub(st, live, delta=None, to=None):
 
 
 def handle_key(st, k, live):
-    if st.prompt in ("job", "postcode"):
+    if st.prompt in ("job", "postcode", "deadline"):
         return _prompt_key(st, k)
     if st.prompt == "help":
         st.prompt = None
@@ -73,6 +73,12 @@ def handle_key(st, k, live):
         st.save()
     elif k == "p":
         st.prompt, st.buf, st.err = "postcode", st.postcode or "", ""
+    elif k == "s" and st.job:
+        st.job.split = not st.job.split
+        st.say("%s: %s" % (st.job.name, "may run in pieces" if st.job.split else "runs in one go"), C.TEXT)
+        st.save()
+    elif k == "b" and st.job:
+        st.prompt, st.buf, st.err = "deadline", st.job.deadline or "", ""
     elif k == "m":
         st.mix = not st.mix
         st.save()
@@ -126,7 +132,26 @@ def _submit(st):
         st.sel = len(st.jobs) - 1
         st.prompt = None
         st.save()
-        st.say("added %s, %s" % (job.name, plan.fmt_duration(job.minutes)), C.GREEN)
+        st.say("added %s, %s" % (job.name, job.describe()), C.GREEN)
+        return None
+    if st.prompt == "deadline":
+        text = st.buf.strip()
+        if text.lower().startswith("by "):        # "by 07:00", the way a deadline reads in a job
+            text = text[3:].strip()
+        try:
+            st.job.deadline = plan.parse_clock(text) if text else None
+        except ValueError as e:
+            st.err = str(e)
+            try:
+                plan.parse_job(st.buf)
+                st.err = "that's a whole new job: Esc, then a to add it"
+            except ValueError:
+                pass
+            return None
+        st.prompt = None
+        st.save()
+        st.say("%s: %s" % (st.job.name, "done by " + st.job.deadline if st.job.deadline else "no deadline"),
+               C.TEXT)
         return None
     text = st.buf.strip()
     if not text:
