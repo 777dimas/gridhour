@@ -77,8 +77,28 @@ gridhour SW1A 1AA
 Either line is enough. The second one is there for when PyPI is unreachable; it builds the latest
 code on `main`, which can be ahead of the release.
 
-No pipx yet? `sudo apt install pipx` on Debian and Ubuntu, `brew install pipx` on macOS. If your
-shell cannot find `gridhour` afterwards, run `pipx ensurepath` once and open a new terminal.
+No pipx yet? Get it from your system's package manager:
+
+| System | Install pipx |
+| --- | --- |
+| Debian, Ubuntu | `sudo apt install pipx` |
+| Fedora | `sudo dnf install pipx` |
+| Rocky Linux, AlmaLinux | `sudo dnf install epel-release && sudo dnf install pipx` |
+| RHEL | [enable EPEL](https://docs.fedoraproject.org/en-US/epel/getting-started/), then `sudo dnf install pipx` |
+| openSUSE Tumbleweed | `sudo zypper install python313-pipx` |
+| macOS | `brew install pipx` |
+
+If your shell cannot find `gridhour` afterwards, run `pipx ensurepath` once and open a new
+terminal.
+
+**gridhour needs Python 3.11 or newer.** Some long-term-support systems ship an older default:
+RHEL, Rocky and AlmaLinux 9 come with 3.9 (version 10 is fine), and openSUSE Leap 15 with 3.6.
+There, install a newer Python next to the system one (`sudo dnf install python3.11` on the EL 9
+family, `sudo zypper install python311` on Leap 15) and point pipx at it:
+
+```sh
+pipx install --python python3.11 gridhour
+```
 
 To try it without installing: `pipx run gridhour SW1A` or `uvx gridhour SW1A`.
 
