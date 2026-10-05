@@ -366,7 +366,7 @@ FETCH_ERRORS = (urllib.error.URLError, OSError, ValueError, http.client.HTTPExce
                 OverflowError)
 
 
-def cached_json(key, url, parse, max_age=MAX_AGE, force=False, fetch=None):
+def cached_json(key, url, parse, max_age=MAX_AGE, force=False, fetch=None, cache_only=False):
     """(fetched_at, parsed, error). A response is parsed before it is cached, so a broken one is
     never stored; a cache entry that no longer parses counts as missing. Falls back to a stale
     cache when the network fails."""
@@ -379,8 +379,8 @@ def cached_json(key, url, parse, max_age=MAX_AGE, force=False, fetch=None):
             at, parsed = None, None
     if parsed is not None and not force and time.time() - at < max_age:
         return at, parsed, None
-    if offline():
-        return at, parsed, None if parsed is not None else "offline and nothing cached yet"
+    if offline() or cache_only:
+        return at, parsed, None if parsed is not None or cache_only else "offline and nothing cached yet"
     try:
         fresh = (fetch or http_json)(url)
         result = parse(fresh)
@@ -408,6 +408,20 @@ def prices_url(product, gsp, start, end):
 
 def load(now, postcode=None, region_id=None, gsp=None, prices=True, force=False, fetch=None):
     """Fetch (or read from cache) everything for the 48 hour window around ``now``."""
+    timed_out = False
+
+    def refresh_fetch(url):
+        nonlocal timed_out
+        try:
+            return (fetch or http_json)(url)
+        except TimeoutError:
+            timed_out = True
+            raise
+        except urllib.error.URLError as exc:
+            if isinstance(exc.reason, TimeoutError):
+                timed_out = True
+            raise
+
     start = window_start(now)
     end = start + SLOT * WINDOW_SLOTS
     if postcode is not None:
@@ -416,7 +430,8 @@ def load(now, postcode=None, region_id=None, gsp=None, prices=True, force=False,
         region_id = None
     fc = Forecast(postcode=postcode)
     key = "carbon-" + (postcode or "r%d" % (region_id or 18))
-    at, parsed, err = cached_json(key, carbon_url(start, postcode, region_id), parse_carbon, force=force, fetch=fetch)
+    at, parsed, err = cached_json(key, carbon_url(start, postcode, region_id), parse_carbon,
+                                  force=force, fetch=refresh_fetch)
     carbon = {}
     fc.region_id = region_id or 18
     if parsed is not None:
@@ -431,12 +446,15 @@ def load(now, postcode=None, region_id=None, gsp=None, prices=True, force=False,
     price_map = {}
     fc.gsp = gsp if gsp in GSP_REGION else REGIONS[fc.region_id][1]
     if prices and fc.gsp:
-        _, product, _ = cached_json("agile-product", OCTOPUS_API + "/products/?brand=OCTOPUS_ENERGY&is_variable=true"
-                                    "&page_size=100", pick_agile, max_age=86400, fetch=fetch)
+        _, product, perr = cached_json("agile-product", OCTOPUS_API + "/products/?brand=OCTOPUS_ENERGY&is_variable=true"
+                                       "&page_size=100", pick_agile, max_age=86400,
+                                       fetch=refresh_fetch, cache_only=timed_out)
+        if perr and timed_out:
+            fc.errors.append(perr)
         product = product or FALLBACK_AGILE
         fc.tariff = "E-1R-%s-%s" % (product, fc.gsp)
         rat, parsed, rerr = cached_json("prices-" + fc.gsp, prices_url(product, fc.gsp, start, end + SLOT * 48),
-                                        parse_prices, force=force, fetch=fetch)
+                                        parse_prices, force=force, fetch=refresh_fetch, cache_only=timed_out)
         if parsed is not None:
             price_map = parsed
             if rat and (not fc.fetched or rat < fc.fetched):

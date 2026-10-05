@@ -5,6 +5,11 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+* A refresh stops its remaining network requests after the first timeout,
+  retaining cached carbon and prices with one error rather than repeated deadlines.
+
 ## [0.3.0] - 2026-10-05
 
 ### Added
