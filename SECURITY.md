@@ -61,7 +61,7 @@ file created with `O_EXCL` and are renamed into place, so a planted symlink is n
 * Every release file carries signed build provenance. To check a file you downloaded:
 
   ```sh
-  pip download gridhour==0.3.0 --no-deps -d .
-  gh attestation verify gridhour-0.3.0-py3-none-any.whl --repo 777dimas/gridhour \
-      --signer-workflow 777dimas/gridhour/.github/workflows/release.yml --source-ref refs/tags/v0.3.0
+  pip download gridhour==0.4.0 --no-deps -d .
+  gh attestation verify gridhour-0.4.0-py3-none-any.whl --repo 777dimas/gridhour \
+      --signer-workflow 777dimas/gridhour/.github/workflows/release.yml --source-ref refs/tags/v0.4.0
   ```

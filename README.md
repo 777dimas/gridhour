@@ -119,7 +119,7 @@ gridhour --reset && pipx uninstall gridhour    # --reset first deletes the saved
 
 * **pip**, in a virtual environment: `pip install gridhour`.
 * **From a clone**, nothing to build: `python3 -m gridhour SW1A`.
-* **A specific release from GitHub**: `pipx install git+https://github.com/777dimas/gridhour@v0.3.0`.
+* **A specific release from GitHub**: `pipx install git+https://github.com/777dimas/gridhour@v0.4.0`.
 
 Every release on PyPI carries signed build provenance; [SECURITY.md](https://github.com/777dimas/gridhour/blob/main/SECURITY.md#supply-chain)
 shows how to check a file against it.
