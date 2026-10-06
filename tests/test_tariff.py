@@ -139,3 +139,67 @@ def test_hostile_tariff_in_config_is_ignored(value):
 def test_fixture_is_a_real_go_response():
     rows = fixture("go_c.json")["results"]
     assert {r["value_inc_vat"] for r in rows} == {4.755, 24.6932}
+
+
+NAME = "Octopus Go 12M Fixed August 2025 v1"
+
+
+def products_on_sale(url):
+    """Like the products API: the August 2025 Go version is on sale from 29 August."""
+    on = url.split("available_at=")[1][:10]
+    rows = [{"code": "AGILE-24-10-01", "full_name": "Agile Octopus October 2024 v1"}]
+    if "2025-08-29" <= on <= "2026-02-17":
+        rows.append({"code": GO, "full_name": NAME})
+    return {"count": len(rows), "results": rows}
+
+
+def test_name_from_the_app_resolves_to_the_code():
+    seen = []
+
+    def logged(url):
+        seen.append(url)
+        return products_on_sale(url)
+
+    assert grid.resolve_tariff_name("  octopus go 12m  FIXED august 2025 v1 ", fetch=logged) == GO
+    assert [u.split("available_at=")[1][:10] for u in seen] == ["2025-08-01", "2025-08-15", "2025-09-01"]
+
+
+@pytest.mark.parametrize("name,msg", [
+    ("Octopus Go 12M Fixed", "month and year"), ("x", "as the Octopus app shows it"),
+    ("Octopus Go\x1b[2J August 2025", "as the Octopus app shows it"), ("a" * 100, "as the Octopus app shows it"),
+    ("Octopus Go Imaginary August 2025 v9", "no Octopus tariff called"),
+])
+def test_bad_names_say_why(name, msg):
+    with pytest.raises(ValueError, match=msg):
+        grid.resolve_tariff_name(name, fetch=products_on_sale)
+
+
+def test_name_lookup_gives_up_after_seven_months():
+    seen = []
+    with pytest.raises(ValueError):
+        grid.resolve_tariff_name("Nothing December 2025", fetch=lambda u: seen.append(u) or {"results": []})
+    assert len(seen) == 14 and "2026-06-15" in seen[-1]
+
+
+def test_name_lookup_network_failure_is_a_clear_error():
+    def down(url):
+        raise OSError("no route to host")
+
+    with pytest.raises(ValueError, match="try the tariff code instead"):
+        grid.resolve_tariff_name(NAME, fetch=down)
+
+
+def test_hostile_product_list_rows_are_ignored():
+    doc = {"results": [{"code": "GO/../x", "full_name": NAME}, {"code": 7, "full_name": NAME}, "junk",
+                       {"code": GO, "full_name": NAME}]}
+    assert grid.resolve_tariff_name(NAME, fetch=lambda u: doc) == GO
+
+
+def test_cli_takes_the_name(monkeypatch, capsys):
+    def fake(url, timeout=12):
+        return products_on_sale(url) if "available_at" in url else fake_fetch(url)
+
+    monkeypatch.setattr(grid, "http_json", fake)
+    cli.main(["SW1A", "--tariff", NAME, "--line", "--at", "2026-10-03T22:46Z"])
+    assert state.state_from_config().tariff == GO
+    capsys.readouterr()

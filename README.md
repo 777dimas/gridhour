@@ -138,7 +138,7 @@ gridhour                           # your saved postcode
 gridhour M1 1AE                    # a new postcode (saved)
 gridhour --region scotland         # a region instead, for this run only
 gridhour --mode green              # rank by carbon only (also: cheap, both)
-gridhour --tariff GO-FIX-12M-25-08-29   # your own Octopus tariff instead of Agile (remembered)
+gridhour --tariff "Octopus Go 12M Fixed August 2025 v1"   # your own tariff, as the app names it
 gridhour --no-prices               # carbon only, for any tariff
 gridhour --at 2026-10-04T18:00Z    # start with the cursor at a given time
 gridhour --theme slate --12h
@@ -215,13 +215,16 @@ set -g status-interval 300
 ### On Octopus Go or another tariff
 
 Fixed and time-of-use tariffs keep the rates of the version you signed up to, so tell gridhour
-which one you're on. The tariff code is on your bill and in the Octopus app (tariff details),
-and looks like `E-1R-GO-FIX-12M-25-08-29-E`:
+which one you're on. Use the name exactly as the Octopus app shows it on your tariff screen:
 
 ```sh
-gridhour --tariff E-1R-GO-FIX-12M-25-08-29-E     # the trailing letter sets your region too
-gridhour --tariff agile                          # back to Agile
+gridhour --tariff "Octopus Go 12M Fixed August 2025 v1"
+gridhour --tariff agile                                   # back to Agile
 ```
+
+gridhour looks that name up once, finds Octopus's code for it (here `GO-FIX-12M-25-08-29`) and
+remembers it. If you already know the code you can pass it instead. That includes the long form
+`E-1R-GO-FIX-12M-25-08-29-E`, whose last letter is your region.
 
 gridhour then reads that version's rates from the same public API. Octopus lists them only up
 to today, so later days repeat the same daily pattern, which is how these tariffs work.

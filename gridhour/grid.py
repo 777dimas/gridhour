@@ -151,6 +151,42 @@ def normalize_tariff(text):
     return t, gsp
 
 
+MONTHS = ("january", "february", "march", "april", "may", "june", "july", "august", "september",
+          "october", "november", "december")
+
+
+def resolve_tariff_name(name, fetch=None):
+    """'Octopus Go 12M Fixed August 2025 v1' (as the Octopus app shows it) -> its product code.
+
+    A version stays on sale for a few months, starting some time in the month it's named after,
+    so ask which products were on sale on the 1st and 15th of that month and the next six, and
+    stop at the first one whose full name matches. Raises ValueError."""
+    text = " ".join(str(name or "").split())
+    if not 5 <= len(text) <= 80 or not text.isprintable():
+        raise ValueError("give the tariff name as the Octopus app shows it, e.g. 'Octopus Go 12M Fixed August 2025 v1'")
+    m = re.search(r"\b(%s)\s+(20[0-9]{2})\b" % "|".join(MONTHS), text.lower(), re.ASCII)
+    if not m:
+        raise ValueError("the tariff name needs its month and year, like 'August 2025'; "
+                         "or pass the tariff code instead")
+    month, year = MONTHS.index(m.group(1)) + 1, int(m.group(2))
+    wanted = text.lower()
+    for k in range(7):
+        y, mo = year + (month - 1 + k) // 12, (month - 1 + k) % 12 + 1
+        for day in (1, 15):
+            url = ("%s/products/?brand=OCTOPUS_ENERGY&available_at=%04d-%02d-%02dT12:00:00Z&page_size=100"
+                   % (OCTOPUS_API, y, mo, day))
+            try:
+                rows = _rows((fetch or http_json)(url), "results")
+            except FETCH_ERRORS as e:
+                raise ValueError("couldn't look the tariff up (%s); try the tariff code instead" % _why(e)) from None
+            for p in rows:
+                code, full = p.get("code"), p.get("full_name")
+                if (isinstance(code, str) and isinstance(full, str) and PRODUCT_CODE.fullmatch(code)
+                        and " ".join(full.split()).lower() == wanted):
+                    return code
+    raise ValueError("no Octopus tariff called %r; check the name in the app, or use the tariff code" % text)
+
+
 def tariff_name(product):
     """A short name for the title bar."""
     if not product or product.startswith("AGILE-"):
