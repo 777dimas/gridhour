@@ -158,6 +158,7 @@ Keys inside the app (`?` lists them all):
 | `Enter` | jump to the selected job's best window |
 | `w` | rank by carbon, price, or both |
 | `p` | change postcode |
+| `o` | change tariff: its name from the Octopus app, a code, or `agile` |
 | `m` `c` `T` `t` | mix rows, compact layout, theme, 12/24h |
 | `R` | refetch now |
 | `q` | quit |
@@ -222,7 +223,8 @@ gridhour --tariff "Octopus Go 12M Fixed August 2025 v1"
 gridhour --tariff agile                                   # back to Agile
 ```
 
-gridhour looks that name up once, finds Octopus's code for it (here `GO-FIX-12M-25-08-29`) and
+In the app itself, press `o` and type the same name. gridhour looks that name up once, finds
+Octopus's code for it (here `GO-FIX-12M-25-08-29`) and
 remembers it. If you already know the code you can pass it instead. That includes the long form
 `E-1R-GO-FIX-12M-25-08-29-E`, whose last letter is your region.
 

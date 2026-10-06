@@ -203,3 +203,69 @@ def test_cli_takes_the_name(monkeypatch, capsys):
     cli.main(["SW1A", "--tariff", NAME, "--line", "--at", "2026-10-03T22:46Z"])
     assert state.state_from_config().tariff == GO
     capsys.readouterr()
+
+
+# ---------------------------------------------------------------- switching the tariff in the TUI
+
+def type_tariff(st, text):
+    from gridhour.keys import handle_key
+    out = handle_key(st, "o", NOW)
+    for k in ["\x7f"] * 40 + list(text) + ["\r"]:
+        out = handle_key(st, k, NOW)
+    return out
+
+
+def test_o_with_a_code_switches_and_reloads(st):
+    assert type_tariff(st, "E-1R-%s-E" % GO) == "refetch"
+    assert st.tariff == GO and st.gsp == "E" and st.prompt is None
+    assert type_tariff(st, "agile") == "refetch"
+    assert st.tariff is None and st.gsp is None
+
+
+def test_o_starts_with_the_current_tariff(st):
+    from gridhour.keys import handle_key
+    st.tariff = GO
+    handle_key(st, "o", NOW)
+    assert st.prompt == "tariff" and st.buf == GO
+
+
+def test_o_with_a_bad_code_keeps_the_box_open(st):
+    assert type_tariff(st, "GO/../x") is None
+    assert st.prompt == "tariff" and "not an Octopus tariff" in st.err and st.tariff is None
+
+
+def test_o_with_a_name_is_looked_up_in_the_background(st, monkeypatch):
+    import threading
+
+    from gridhour import app
+    assert type_tariff(st, NAME) == "lookup-tariff"
+    assert st.pending_tariff == NAME and st.prompt is None and "looking up" in st.msg[0]
+    fetched, done = [], threading.Event()
+    monkeypatch.setattr(app, "fetch", lambda st, force=False, notify=None: (fetched.append(force), done.set()))
+    app.lookup_tariff(st, resolve=lambda name: GO)
+    assert done.wait(2)
+    assert st.tariff == GO and st.pending_tariff is None and fetched == [True]
+
+
+def test_a_failed_name_lookup_says_why_and_keeps_the_old_tariff(st):
+    import threading
+
+    from gridhour import app
+    st.tariff, st.pending_tariff = GO, "Octopus Nothing August 2025 v9"
+    done = threading.Event()
+
+    def nope(name):
+        raise ValueError("no Octopus tariff called 'Octopus Nothing August 2025 v9'")
+
+    app.lookup_tariff(st, notify=lambda kind: done.set(), resolve=nope)
+    assert done.wait(2)
+    assert st.tariff == GO and "no Octopus tariff" in st.msg[0]
+
+
+def test_tariff_prompt_and_help_are_on_screen(st):
+    from gridhour.keys import handle_key
+    handle_key(st, "o", NOW)
+    assert "Tariff (name from the Octopus app" in "\n".join(compose(120, 40, st, NOW, NOW).text())
+    handle_key(st, "\x1b", NOW)
+    handle_key(st, "?", NOW)
+    assert "your Octopus tariff" in "\n".join(compose(120, 40, st, NOW, NOW).text())
