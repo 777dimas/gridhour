@@ -211,7 +211,7 @@ def watch(st, utcnow, color="ansi", best=None, refresh=600):
         while True:
             now = utcnow()
             if time.time() - last > refresh:
-                st.fc = load(now, st.postcode, st.region_id, st.gsp, st.prices)
+                st.fc = load(now, st.postcode, st.region_id, st.gsp, st.prices, tariff=st.tariff)
                 last = time.time()
             text = line_output(st, now, color, best)
             sys.stdout.write("\r" + text + " " * max(0, width - len(text)))

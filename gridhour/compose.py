@@ -129,7 +129,7 @@ def compose(W, H, st, now, live):
         y = 2
         draw_bracket(cv, y, axis, win, st.h12)
         y += 1
-        draw_chart(cv, y, axis, slots, hc, hp, win, now, live, st.h12)
+        draw_chart(cv, y, axis, slots, hc, hp, win, now, live, st.h12, fc.tariff_name == "Agile")
         y += hc + 1 + hp
         cursor_row(cv, y, axis, now, live, st.h12)
         y += 1
@@ -164,7 +164,7 @@ def draw_top(cv, st, fc, now, live, W):
     if fc.postcode:
         where.append(fc.postcode)
     if fc.gsp and fc.has_prices:
-        where.append("Agile " + fc.gsp)
+        where.append(fc.tariff_name + " " + fc.gsp)
     where.append(plan.MODE_LABEL[plan.effective_mode(fc.slots, st.mode)])
     lt = now.astimezone(UK)
     clock = hm(now, st.h12) + " " + lt.tzname()
@@ -215,7 +215,7 @@ def draw_bracket(cv, y, axis, win, h12):
         cv.put(max(x0, lx), y, label.strip(), color)
 
 
-def draw_chart(cv, y0, axis, slots, hc, hp, win, now, live, h12):
+def draw_chart(cv, y0, axis, slots, hc, hp, win, now, live, h12, agile=True):
     """Carbon bars rise from the axis row, price bars hang below it."""
     x0 = axis.x0
     cmax = nice_ceiling(max((s.carbon or 0) for s in slots), 100)
@@ -281,7 +281,7 @@ def draw_chart(cv, y0, axis, slots, hc, hp, win, now, live, h12):
         cv.put(x0 + now_col, axis_y, "┃", C.WHITE, C.BG, True)
     if hp:
         missing = [c for c in range(axis.w) if slots[axis.slot(c)].price is None and slots[axis.slot(c)].start >= live]
-        if len(missing) > 34:
+        if len(missing) > 34 and agile:
             note = "Agile prices for this stretch arrive at about 4pm"
             if len(note) > len(missing) - 2:
                 note = "prices arrive at about 4pm"

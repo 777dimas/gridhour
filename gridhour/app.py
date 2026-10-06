@@ -44,7 +44,7 @@ def fetch(st, force=False, notify=None):
     def work():
         fc, failure = None, None
         try:
-            fc = load(utcnow(), st.postcode, st.region_id, st.gsp, st.prices, force=force)
+            fc = load(utcnow(), st.postcode, st.region_id, st.gsp, st.prices, force=force, tariff=st.tariff)
         except Exception as e:  # noqa: BLE001 - a background failure must reach the status line, not stderr
             failure = "update failed (%s)" % type(e).__name__
         with _fetch_lock:

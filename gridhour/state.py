@@ -4,7 +4,7 @@ import os
 import time
 from dataclasses import replace
 
-from .grid import GSP_REGION, REGIONS, Forecast, normalize_postcode, number
+from .grid import GSP_REGION, REGIONS, Forecast, normalize_postcode, normalize_tariff, number
 from .plan import DEFAULT_JOBS, MODES, Job, parse_clock
 from .safe import atomic_write, label
 from .themes import C, apply_theme
@@ -31,6 +31,7 @@ class State:
         self.postcode = None        # outward code, e.g. "SW1A"
         self.region_id = None       # used when there is no postcode; None = all of GB
         self.gsp = None             # Octopus region letter override
+        self.tariff = None          # Octopus product code, e.g. GO-FIX-12M-25-08-29; None = Agile
         self.prices = True
         self.jobs = [replace(j) for j in DEFAULT_JOBS]
         self.sel = 0                # selected job
@@ -57,7 +58,8 @@ class State:
             return
         try:
             atomic_write(config_path(), json.dumps(
-                {"postcode": self.postcode, "region": self.region_id, "gsp": self.gsp, "prices": self.prices,
+                {"postcode": self.postcode, "region": self.region_id, "gsp": self.gsp, "tariff": self.tariff,
+                 "prices": self.prices,
                  "jobs": [j.to_json() for j in self.jobs], "mode": self.mode, "theme": C.name, "h12": self.h12,
                  "mix": self.mix, "compact": self.compact}, indent=1))
         except OSError:
@@ -85,6 +87,11 @@ def state_from_config():
         st.region_id = region
     if isinstance(cfg.get("gsp"), str) and cfg["gsp"] in GSP_REGION:
         st.gsp = cfg["gsp"]
+    if isinstance(cfg.get("tariff"), str):
+        try:
+            st.tariff, _ = normalize_tariff(cfg["tariff"])
+        except ValueError:
+            st.tariff = None
     st.prices = cfg.get("prices", True) is not False
     jobs = []
     raw = cfg.get("jobs")

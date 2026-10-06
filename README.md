@@ -138,7 +138,8 @@ gridhour                           # your saved postcode
 gridhour M1 1AE                    # a new postcode (saved)
 gridhour --region scotland         # a region instead, for this run only
 gridhour --mode green              # rank by carbon only (also: cheap, both)
-gridhour --no-prices               # skip Agile, for people on a flat tariff
+gridhour --tariff GO-FIX-12M-25-08-29   # your own Octopus tariff instead of Agile (remembered)
+gridhour --no-prices               # carbon only, for any tariff
 gridhour --at 2026-10-04T18:00Z    # start with the cursor at a given time
 gridhour --theme slate --12h
 gridhour --reset                   # delete the saved postcode, jobs, settings and the cache
@@ -211,6 +212,26 @@ set -g status-interval 300
   4pm, so before that the price half of the chart stops around 11pm tonight and the "cheap"
   ranking only looks that far ahead.
 
+### On Octopus Go or another tariff
+
+Fixed and time-of-use tariffs keep the rates of the version you signed up to, so tell gridhour
+which one you're on. The tariff code is on your bill and in the Octopus app (tariff details),
+and looks like `E-1R-GO-FIX-12M-25-08-29-E`:
+
+```sh
+gridhour --tariff E-1R-GO-FIX-12M-25-08-29-E     # the trailing letter sets your region too
+gridhour --tariff agile                          # back to Agile
+```
+
+gridhour then reads that version's rates from the same public API. Octopus lists them only up
+to today, so later days repeat the same daily pattern, which is how these tariffs work.
+
+On Go, price alone doesn't tell you much: it's cheap from 00:30 to 05:30 and the same price the
+rest of the day. What gridhour adds is carbon. It picks the cleaner night for the washing, and
+the cleaner hours when you have to run something in the day. Intelligent Go's extra charging
+slots are set per account by Octopus and aren't public, so gridhour only knows the standard
+Go hours for that tariff.
+
 These are forecasts. The carbon forecast for tomorrow afternoon can be off by a fair
 margin; Agile prices, once published, are what you pay. gridhour is not affiliated with Octopus
 Energy or NESO.
@@ -234,6 +255,11 @@ python3 -m venv .venv && . .venv/bin/activate
 pip install --require-hashes -r requirements/dev.txt && pip install --no-deps -e .
 pytest
 ```
+
+**How it's made.** Most of gridhour's code was written with an AI assistant (Claude), directed
+by me. Every change, mine or a contributor's, goes through a pull request with the full test suite,
+`ruff`, CodeQL and a security-focused test file (`tests/test_security.py`), and releases are built
+and signed in CI.
 
 The tests replay real API responses from `tests/fixtures/`; sockets are blocked while they run.
 More in [CONTRIBUTING.md](https://github.com/777dimas/gridhour/blob/main/CONTRIBUTING.md).

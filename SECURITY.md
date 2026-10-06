@@ -34,8 +34,9 @@ first half of your postcode, for example `SW1A`) and `api.octopus.energy` (with 
   sequences to your terminal nor shift or reorder the screen. In `--tmux` output every `#` is
   doubled, so no text can become a tmux format or a `#(command)`. `--json` output is pure ASCII.
 * Error messages never repeat response content.
-* The Agile product code from the API must match `AGILE-[A-Z0-9-]+` exactly, and the region letter
-  must be one of the fourteen known ones, before either goes into a URL.
+* An Octopus product code, whether from the API or from `--tariff` and the config file, must match
+  `[A-Z][A-Z0-9]*(-[A-Z0-9]+)+` exactly, and is at most 60 characters long. The region letter must
+  be one of the fourteen known ones, before either goes into a URL or a cache file name.
 * Malformed responses, config files and arguments produce an error message, not a crash. The
   test suite in `tests/test_security.py` holds the cases.
 

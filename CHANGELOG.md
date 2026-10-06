@@ -5,6 +5,15 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+* `--tariff` for Octopus tariffs other than Agile, such as Go and Go 12M Fixed. Give it the code
+  from your bill (`E-1R-GO-FIX-12M-25-08-29-E`) or just the product (`GO-FIX-12M-25-08-29`). The
+  title bar shows the tariff, and jobs land in the cheap hours; when the price is the same,
+  carbon decides. `--tariff agile` goes back. It's remembered like the postcode.
+* README: a note on how gridhour is made: largely with an AI assistant, with every change going
+  through tests, lint and CodeQL.
+
 ### Fixed
 
 * A refresh stops its remaining network requests after the first timeout,
