@@ -488,10 +488,11 @@ def label_window(cv, y, axis, win, h12, live):
 
 def draw_footer(cv, st, fc, now, live, win, slots, W, H):
     y = H - 2
-    if st.prompt in ("job", "postcode", "deadline"):
+    if st.prompt in ("job", "postcode", "deadline", "tariff"):
         q = {"job": "Add a job (Dryer 1h30, or EV 4h by 07:00 split): ",
              "postcode": "Postcode (SW1A 1AA, or just SW1A), empty for all of GB: ",
-             "deadline": "Finish %s by (07:00, 7am), empty for no deadline: " % (st.job.name if st.job else "")
+             "deadline": "Finish %s by (07:00, 7am), empty for no deadline: " % (st.job.name if st.job else ""),
+             "tariff": "Tariff (name from the Octopus app, a code, or agile): "
              }[st.prompt]
         cv.fill(0, y, W, C.PANEL_BG)
         cv.put(1, y, q, C.AMBER, C.PANEL_BG, True)
@@ -532,8 +533,8 @@ def draw_footer(cv, st, fc, now, live, win, slots, W, H):
             age = (fc.errors[0][:40] + " · " + age) if age else fc.errors[0][:40]
         cv.put(W - len(age) - 1, y, age, C.AMBER if fc.errors else C.DIM)
     keys = [("←→", "time"), ("↑↓", "job"), ("w", "green/cheap"), ("+-", "length"), ("a", "add"), ("d", "delete"),
-            ("p", "postcode"), ("?", "help"), ("q", "quit"), ("r", "now"), ("R", "refresh"), ("m", "mix"),
-            ("T", "theme")]
+            ("p", "postcode"), ("o", "tariff"), ("?", "help"), ("q", "quit"), ("r", "now"), ("R", "refresh"),
+            ("m", "mix"), ("T", "theme")]
     x = 0
     for k, label in keys:
         if x + len(k) + len(label) + 4 > W:
@@ -563,6 +564,7 @@ HELP = [
     ("Enter", "jump the cursor to the selected job's best window"),
     ("w", "rank windows by carbon, by price, or both"),
     ("p", "set your postcode (region and Agile prices follow it)"),
+    ("o", "your Octopus tariff: its name from the app, a code, or agile"),
     ("m", "show or hide the generation mix"),
     ("R", "fetch fresh data now"),
     ("T t c", "theme, 12/24 hour clock, compact layout"),

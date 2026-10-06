@@ -15,7 +15,7 @@ import time
 from datetime import UTC, datetime
 
 from .compose import compose
-from .grid import load
+from .grid import load, resolve_tariff_name, tariff_name
 from .keys import handle_key
 from .themes import C
 
@@ -29,6 +29,28 @@ def utcnow():
 # ---------------------------------------------------------------- background data
 
 _fetch_lock = threading.Lock()
+
+
+def lookup_tariff(st, notify=None, resolve=None):
+    """Turn the tariff name typed in the TUI into a code in the background, then reload."""
+    name = st.pending_tariff
+
+    def work():
+        try:
+            code = (resolve or resolve_tariff_name)(name)
+        except Exception as e:  # noqa: BLE001 - shown on the status line, never as a traceback
+            st.say(str(e) if isinstance(e, ValueError) else "tariff lookup failed (%s)" % type(e).__name__,
+                   C.RED, 10)
+            if notify:
+                notify("data")
+            return
+        if st.pending_tariff == name:           # nothing newer was typed meanwhile
+            st.tariff, st.pending_tariff = code, None
+            st.save()
+            st.say("tariff: %s (%s)" % (tariff_name(code), code), C.GREEN, 6)
+            fetch(st, force=True, notify=notify)
+
+    threading.Thread(target=work, name="gridhour-tariff", daemon=True).start()
 
 
 def fetch(st, force=False, notify=None):
@@ -219,6 +241,8 @@ def _loop(st, events, screen):
             action = handle_key(st, value, utcnow())
             if action == "quit":
                 return
+            if action == "lookup-tariff":
+                lookup_tariff(st, notify=notify)
             if action in ("fetch", "refetch"):
                 reloaded = time.monotonic()
                 fetch(st, force=action == "refetch", notify=notify)

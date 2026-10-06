@@ -14,6 +14,8 @@ and the project uses [semantic versioning](https://semver.org/).
   once; a code like `GO-FIX-12M-25-08-29` works too. The title bar shows the tariff, and jobs
   land in the cheap hours; when the price is the same, carbon decides. `--tariff agile` goes back.
   It's remembered like the postcode.
+* `o` in the app switches the tariff: type the name from the Octopus app, a code, or `agile`.
+  Names are looked up in the background, so the screen doesn't freeze.
 * README: a note on how gridhour is made: largely with an AI assistant, with every change going
   through tests, lint and CodeQL.
 

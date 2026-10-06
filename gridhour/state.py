@@ -32,6 +32,7 @@ class State:
         self.region_id = None       # used when there is no postcode; None = all of GB
         self.gsp = None             # Octopus region letter override
         self.tariff = None          # Octopus product code, e.g. GO-FIX-12M-25-08-29; None = Agile
+        self.pending_tariff = None  # a tariff name typed in the TUI, waiting to be looked up
         self.prices = True
         self.jobs = [replace(j) for j in DEFAULT_JOBS]
         self.sel = 0                # selected job

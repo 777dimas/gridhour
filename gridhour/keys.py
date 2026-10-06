@@ -1,6 +1,7 @@
 """Every key press ends up here. Returns "quit", "fetch" (reload, cache allowed), "refetch" or None."""
 from . import plan
-from .grid import SLOT, floor_slot, normalize_postcode
+from .grid import SLOT, floor_slot, normalize_postcode, normalize_tariff, tariff_name
+from .safe import label
 from .themes import THEME_ORDER, C, apply_theme
 
 LEFT, RIGHT, UP, DOWN = "\x1b[D", "\x1b[C", "\x1b[A", "\x1b[B"
@@ -19,7 +20,7 @@ def _scrub(st, live, delta=None, to=None):
 
 
 def handle_key(st, k, live):
-    if st.prompt in ("job", "postcode", "deadline"):
+    if st.prompt in ("job", "postcode", "deadline", "tariff"):
         return _prompt_key(st, k)
     if st.prompt == "help":
         st.prompt = None
@@ -73,6 +74,8 @@ def handle_key(st, k, live):
         st.save()
     elif k == "p":
         st.prompt, st.buf, st.err = "postcode", st.postcode or "", ""
+    elif k == "o":
+        st.prompt, st.buf, st.err = "tariff", st.tariff or "agile", ""
     elif k == "s" and st.job:
         st.job.split = not st.job.split
         st.say("%s: %s" % (st.job.name, "may run in pieces" if st.job.split else "runs in one go"), C.TEXT)
@@ -134,6 +137,26 @@ def _submit(st):
         st.save()
         st.say("added %s, %s" % (job.name, job.describe()), C.GREEN)
         return None
+    if st.prompt == "tariff":
+        text = st.buf.strip()
+        if " " in text:                         # a name as the app shows it: looked up in the background
+            st.pending_tariff, st.prompt, st.frozen = text, None, None
+            st.say("looking up %s…" % (label(text, 50) or "the tariff"), C.CYAN, 30)
+            return "lookup-tariff"
+        try:
+            product, letter = normalize_tariff(text)
+        except ValueError as e:
+            st.err = str(e)
+            return None
+        st.tariff = product
+        if letter:
+            st.gsp = letter
+        elif product is None:
+            st.gsp = None
+        st.prompt, st.frozen = None, None
+        st.save()
+        st.say("tariff: %s" % tariff_name(product), C.GREEN)
+        return "refetch"
     if st.prompt == "deadline":
         text = st.buf.strip()
         if text.lower().startswith("by "):        # "by 07:00", the way a deadline reads in a job
