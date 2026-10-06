@@ -22,7 +22,7 @@ def fake_fetch(url):
     if "carbonintensity" in url:
         return fixture("carbon_sw1a.json")
     if "standard-unit-rates" in url:
-        return fixture("agile_c.json")
+        return fixture("go_c.json" if "GO-FIX" in url else "agile_c.json")
     return fixture("products.json")
 
 

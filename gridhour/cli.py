@@ -8,7 +8,15 @@ import sys
 from . import __version__
 from .app import run, utcnow
 from .compose import MAX_H, MAX_W, compose
-from .grid import cache_dir, load, normalize_postcode, parse_time, region_from_arg
+from .grid import (
+    cache_dir,
+    load,
+    normalize_postcode,
+    normalize_tariff,
+    parse_time,
+    region_from_arg,
+    resolve_tariff_name,
+)
 from .output import ical_output, json_output, line_output, watch
 from .plan import MODES, parse_job
 from .state import config_path, state_from_config
@@ -51,7 +59,10 @@ def main(argv=None):
                                              "Agile price timeline for the terminal.")
     ap.add_argument("postcode", nargs="*", help="your postcode, full or the first half (remembered)")
     ap.add_argument("--region", help="a region instead of a postcode: 1-18, an Agile letter A-P, or a name")
-    ap.add_argument("--no-prices", action="store_true", help="carbon only, skip Octopus Agile prices")
+    ap.add_argument("--tariff", metavar="CODE",
+                    help="your Octopus tariff: its name as the app shows it ('Octopus Go 12M Fixed August 2025 "
+                         "v1') or its code (GO-FIX-12M-25-08-29); 'agile' to go back (remembered)")
+    ap.add_argument("--no-prices", action="store_true", help="carbon only, skip Octopus prices")
     ap.add_argument("--mode", choices=MODES, help="rank windows by carbon, price or both")
     ap.add_argument("--at", help="freeze the clock at this time (ISO 8601, UTC unless it has an offset)")
     ap.add_argument("--line", action="store_true", help="print one line for a status bar and exit")
@@ -81,6 +92,16 @@ def main(argv=None):
             st.region_id = region_from_arg(args.region)
             st.postcode = None
             st.persist = False
+        if args.tariff is not None:
+            if " " in args.tariff.strip():          # a name, as the app shows it
+                st.tariff, letter = resolve_tariff_name(args.tariff), None
+            else:
+                st.tariff, letter = normalize_tariff(args.tariff)
+            if letter:
+                st.gsp = letter
+            elif st.tariff is None:
+                st.gsp = None
+            st.save()
         best = parse_job("job " + args.best) if args.best else None
         at = parse_time(args.at) if args.at else None
         if at and not 2000 <= at.year <= 2100:
@@ -103,7 +124,7 @@ def main(argv=None):
         return
     if args.line or args.tmux or args.json or args.once or args.ical:
         now = at or utcnow().replace(microsecond=0)
-        st.fc = load(now, st.postcode, st.region_id, st.gsp, st.prices)
+        st.fc = load(now, st.postcode, st.region_id, st.gsp, st.prices, tariff=st.tariff)
         if args.ical:
             sys.stdout.buffer.write(ical_output(st, now).encode("utf-8"))
         elif args.json:

@@ -22,6 +22,7 @@ from .safe import atomic_write, label
 CARBON_API = "https://api.carbonintensity.org.uk"
 OCTOPUS_API = "https://api.octopus.energy/v1"
 FALLBACK_AGILE = "AGILE-24-10-01"
+AGILE_PRODUCTS_URL = "https://api.octopus.energy/v1/products/?brand=OCTOPUS_ENERGY&is_variable=true&page_size=100"
 SLOT = timedelta(minutes=30)
 WINDOW_SLOTS = 96               # 48 hours
 PAST = timedelta(hours=2)       # how much of the timeline lies before now
@@ -29,8 +30,10 @@ MAX_AGE = 30 * 60               # seconds before cached data is refetched
 MAX_BYTES = 4 * 1024 * 1024     # a 48 hour forecast is about 40 kB; anything this big is not one
 DEADLINE = 25                   # seconds for a whole request, however slowly the bytes trickle in
 MAX_ROWS = 2000                 # rows looked at in one response
-PRODUCT_CODE = re.compile(r"AGILE-[A-Z0-9]+(?:-[A-Z0-9]+)*", re.ASCII)       # always used with fullmatch
-CACHE_KEY = re.compile(r"[a-z]+-[A-Za-z0-9]+", re.ASCII)
+PRODUCT_CODE = re.compile(r"[A-Z][A-Z0-9]*(?:-[A-Z0-9]+){1,8}", re.ASCII)    # always used with fullmatch
+TARIFF_CODE = re.compile(r"E-1R-(?P<product>[A-Z0-9-]+)-(?P<gsp>[A-P])", re.ASCII)
+CACHE_KEY = re.compile(r"[a-z]+(?:-[A-Za-z0-9]+)+", re.ASCII)
+REPEAT_DAYS = 7                 # how far back a fixed tariff's daily pattern may be borrowed from
 ALLOWED = ("https://api.carbonintensity.org.uk/", "https://api.octopus.energy/")
 FUELS = {"biomass", "coal", "imports", "gas", "nuclear", "other", "hydro", "solar", "wind"}
 INDEXES = {"very low", "low", "moderate", "high", "very high"}
@@ -73,6 +76,7 @@ class Forecast:
     postcode: str = None
     gsp: str = None                 # Octopus region letter, None when prices are off
     tariff: str = None
+    tariff_name: str = "Agile"      # short name for the title bar
     slots: list = field(default_factory=list)
     fetched: float = 0.0            # unix time of the oldest data shown
     errors: list = field(default_factory=list)
@@ -125,6 +129,73 @@ def region_from_arg(text):
         if name.lower().startswith(low) and low:
             return rid
     raise ValueError("unknown region %r (try 1-18, a letter A-P, or a name like 'london')" % text)
+
+
+def normalize_tariff(text):
+    """'agile', a product code ('GO-FIX-12M-25-08-29') or a full tariff code from a bill
+    ('E-1R-GO-FIX-12M-25-08-29-E') -> (product or None for Agile, region letter or None).
+    Raises ValueError."""
+    t = str(text or "").strip().upper()
+    if t in ("", "AGILE"):
+        return None, None
+    if t.startswith("E-2R-"):
+        raise ValueError("two-rate meters (E-2R, Economy 7 style) aren't supported yet")
+    gsp = None
+    m = TARIFF_CODE.fullmatch(t)
+    if m:
+        t, gsp = m.group("product"), m.group("gsp")
+    if len(t) > 60 or not PRODUCT_CODE.fullmatch(t):
+        raise ValueError("not an Octopus tariff code: %r (try GO-FIX-12M-25-08-29, or 'agile')" % text)
+    if "OUTGOING" in t or "EXPORT" in t:
+        raise ValueError("that's an export tariff; gridhour needs the tariff you buy electricity on")
+    return t, gsp
+
+
+MONTHS = ("january", "february", "march", "april", "may", "june", "july", "august", "september",
+          "october", "november", "december")
+
+
+def resolve_tariff_name(name, fetch=None):
+    """'Octopus Go 12M Fixed August 2025 v1' (as the Octopus app shows it) -> its product code.
+
+    A version stays on sale for a few months, starting some time in the month it's named after,
+    so ask which products were on sale on the 1st and 15th of that month and the next six, and
+    stop at the first one whose full name matches. Raises ValueError."""
+    text = " ".join(str(name or "").split())
+    if not 5 <= len(text) <= 80 or not text.isprintable():
+        raise ValueError("give the tariff name as the Octopus app shows it, e.g. 'Octopus Go 12M Fixed August 2025 v1'")
+    m = re.search(r"\b(%s)\s+(20[0-9]{2})\b" % "|".join(MONTHS), text.lower(), re.ASCII)
+    if not m:
+        raise ValueError("the tariff name needs its month and year, like 'August 2025'; "
+                         "or pass the tariff code instead")
+    month, year = MONTHS.index(m.group(1)) + 1, int(m.group(2))
+    wanted = text.lower()
+    for k in range(7):
+        y, mo = year + (month - 1 + k) // 12, (month - 1 + k) % 12 + 1
+        for day in (1, 15):
+            url = ("%s/products/?brand=OCTOPUS_ENERGY&available_at=%04d-%02d-%02dT12:00:00Z&page_size=100"
+                   % (OCTOPUS_API, y, mo, day))
+            try:
+                rows = _rows((fetch or http_json)(url), "results")
+            except FETCH_ERRORS as e:
+                raise ValueError("couldn't look the tariff up (%s); try the tariff code instead" % _why(e)) from None
+            for p in rows:
+                code, full = p.get("code"), p.get("full_name")
+                if (isinstance(code, str) and isinstance(full, str) and PRODUCT_CODE.fullmatch(code)
+                        and " ".join(full.split()).lower() == wanted):
+                    return code
+    raise ValueError("no Octopus tariff called %r; check the name in the app, or use the tariff code" % text)
+
+
+def tariff_name(product):
+    """A short name for the title bar."""
+    if not product or product.startswith("AGILE-"):
+        return "Agile"
+    for prefix, name in (("GO-", "Go"), ("INTELLI-", "Intelligent Go"), ("SILVER-", "Tracker"),
+                         ("COSY-", "Cosy"), ("VAR-", "Flexible")):
+        if product.startswith(prefix):
+            return name
+    return product[:24]
 
 
 # ---------------------------------------------------------------- time
@@ -215,16 +286,46 @@ def parse_carbon(doc):
     return info, out
 
 
-def parse_prices(doc):
-    """Octopus standard-unit-rates response -> {start: pence per kWh including VAT}."""
+def parse_prices(doc, start=None, end=None):
+    """Octopus standard-unit-rates response -> {half-hour start: pence per kWh including VAT}.
+
+    Agile rows are half hours already. Other tariffs (Go and friends) come as long intervals,
+    say 05:30-00:30; with a window [start, end) those are spread over the half hours they cover,
+    and only inside the window, so a year-long rate can't blow up the result."""
     out = {}
     for row in _rows(doc, "results"):
         if row.get("payment_method") not in (None, "DIRECT_DEBIT"):
             continue
         try:
-            out[parse_time(row.get("valid_from"))] = number(row.get("value_inc_vat"), -200, 500)
-        except ValueError:
+            t0 = parse_time(row.get("valid_from"))
+            price = number(row.get("value_inc_vat"), -200, 500)
+            t1 = parse_time(row["valid_to"]) if row.get("valid_to") is not None else None
+        except (ValueError, KeyError):
             continue
+        if start is None or end is None:
+            out.setdefault(t0, price)
+            continue
+        t = max(floor_slot(t0), start)
+        stop = min(t1, end) if t1 is not None else end
+        while t < stop:
+            out.setdefault(t, price)
+            t += SLOT
+    return out
+
+
+def repeat_daily(prices, start, end):
+    """Fill half hours with no price from the same time on an earlier day. Octopus only lists
+    a fixed time-of-use tariff's rates up to today, but its daily pattern repeats."""
+    out = dict(prices)
+    t = start
+    while t < end:
+        if t not in out:
+            for days in range(1, REPEAT_DAYS + 1):
+                earlier = prices.get(t - timedelta(days=days))
+                if earlier is not None:
+                    out[t] = earlier
+                    break
+        t += SLOT
     return out
 
 
@@ -233,7 +334,8 @@ def pick_agile(doc):
     codes = []
     for p in _rows(doc, "results"):
         code = p.get("code")
-        if (isinstance(code, str) and PRODUCT_CODE.fullmatch(code) and "OUTGOING" not in code
+        if (isinstance(code, str) and PRODUCT_CODE.fullmatch(code) and code.startswith("AGILE-")
+                and "OUTGOING" not in code
                 and p.get("direction", "IMPORT") == "IMPORT" and not p.get("available_to")):
             codes.append(code)
     codes.sort(key=lambda c: c.split("-")[-3:] if re.search(r"[0-9]{2}-[0-9]{2}-[0-9]{2}$", c) else ["0"])
@@ -406,7 +508,7 @@ def prices_url(product, gsp, start, end):
             % (OCTOPUS_API, product, tariff, iso(start), iso(end)))
 
 
-def load(now, postcode=None, region_id=None, gsp=None, prices=True, force=False, fetch=None):
+def load(now, postcode=None, region_id=None, gsp=None, prices=True, force=False, fetch=None, tariff=None):
     """Fetch (or read from cache) everything for the 48 hour window around ``now``."""
     timed_out = False
 
@@ -446,17 +548,26 @@ def load(now, postcode=None, region_id=None, gsp=None, prices=True, force=False,
     price_map = {}
     fc.gsp = gsp if gsp in GSP_REGION else REGIONS[fc.region_id][1]
     if prices and fc.gsp:
-        _, product, perr = cached_json("agile-product", OCTOPUS_API + "/products/?brand=OCTOPUS_ENERGY&is_variable=true"
-                                       "&page_size=100", pick_agile, max_age=86400,
-                                       fetch=refresh_fetch, cache_only=timed_out)
-        if perr and timed_out:
-            fc.errors.append(perr)
-        product = product or FALLBACK_AGILE
+        product = tariff if isinstance(tariff, str) and PRODUCT_CODE.fullmatch(tariff) else None
+        if product is None:
+            _, product, perr = cached_json("agile-product", AGILE_PRODUCTS_URL, pick_agile, max_age=86400,
+                                           fetch=refresh_fetch, cache_only=timed_out)
+            if perr and timed_out:
+                fc.errors.append(perr)
+            product = product or FALLBACK_AGILE
         fc.tariff = "E-1R-%s-%s" % (product, fc.gsp)
-        rat, parsed, rerr = cached_json("prices-" + fc.gsp, prices_url(product, fc.gsp, start, end + SLOT * 48),
-                                        parse_prices, force=force, fetch=refresh_fetch, cache_only=timed_out)
+        fc.tariff_name = tariff_name(product)
+        agile = product.startswith("AGILE-")
+        key = "prices-" + fc.gsp if agile else "prices-%s-%s" % (product.lower(), fc.gsp)
+        # Octopus lists a fixed tariff's rates only up to today, so ask from a couple of days back
+        # to have whole earlier days to repeat forward
+        since = start if agile else start - timedelta(days=2)
+        rat, parsed, rerr = cached_json(key, prices_url(product, fc.gsp, since, end + SLOT * 48),
+                                        lambda doc: parse_prices(doc, start - timedelta(days=REPEAT_DAYS),
+                                                                 end + SLOT * 48),
+                                        force=force, fetch=refresh_fetch, cache_only=timed_out)
         if parsed is not None:
-            price_map = parsed
+            price_map = parsed if agile else repeat_daily(parsed, start, end)
             if rat and (not fc.fetched or rat < fc.fetched):
                 fc.fetched = rat
         if rerr:
