@@ -5,6 +5,10 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+* Status bar recipes for tmux, Waybar, Polybar and i3blocks, refreshing every five minutes.
+
 ## [0.4.0] - 2026-10-06
 
 ### Added

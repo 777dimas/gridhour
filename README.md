@@ -196,12 +196,75 @@ Import `jobs.ics` into your calendar app. Each continuous part of a job's best
 window becomes a separate event. Events include the best window's average carbon
 intensity and price, with UTC timestamps and stable UIDs for repeat imports.
 
-A tmux example:
+## Status bar recipes
+
+Waybar, Polybar and i3blocks refresh this module every five minutes (300 seconds).
+Tmux uses its normal status interval. Forecast slots are half-hourly; cached runs
+do not fetch new data on every refresh. Run gridhour interactively once to
+save your postcode and tariff, then check `gridhour --line` in a terminal. The bar must be
+able to find `gridhour` on its PATH; otherwise replace it with the absolute path printed by
+`command -v gridhour`. Use `--line` for plain text and `--tmux` only inside tmux.
+The ⚡ symbol needs an emoji-capable font in your bar.
+
+### tmux
+
+Add to `~/.tmux.conf`, then reload it with `tmux source-file ~/.tmux.conf`:
 
 ```tmux
 set -g status-right '#(gridhour --tmux) '
-set -g status-interval 300
 ```
+
+This replaces the right-hand status text. Tmux reruns the command at its normal
+status interval, leaving the refresh rate of clocks and other status items alone.
+
+### Waybar
+
+Merge this module into `~/.config/waybar/config` (or `config.jsonc`) and add
+`"custom/gridhour"` to the existing `modules-right` array. Restart Waybar to apply it.
+
+```json
+"custom/gridhour": {
+  "exec": "gridhour --line",
+  "interval": 300,
+  "format": "{}",
+  "escape": true,
+  "tooltip": false
+}
+```
+
+The command emits plain text, so do not set `return-type` to `json`.
+See [Waybar's custom module documentation](https://github.com/Alexays/Waybar/wiki/Module:-Custom).
+
+### Polybar
+
+Add this to `~/.config/polybar/config.ini` and append `gridhour` to your bar's
+existing `modules-right` list, then restart Polybar:
+
+```ini
+[module/gridhour]
+type = custom/script
+exec = gridhour --line
+interval = 300
+tail = false
+label = %output%
+```
+
+`tail = false` runs the command once per interval rather than expecting a continuous stream.
+See [Polybar's script module documentation](https://github.com/polybar/polybar/wiki/Module:-script).
+
+### i3blocks
+
+Append to the i3blocks configuration selected by your i3 or Sway `status_command`
+(commonly `~/.config/i3blocks/config`), then restart i3blocks:
+
+```ini
+[gridhour]
+command=gridhour --line
+interval=300
+```
+
+The first output line becomes the block text. This recipe uses i3blocks, not i3status.
+See [i3blocks' command and interval documentation](https://github.com/vivien/i3blocks#configuration).
 
 ## Where the numbers come from
 
