@@ -198,11 +198,13 @@ intensity and price, with UTC timestamps and stable UIDs for repeat imports.
 
 ## Status bar recipes
 
-These recipes refresh every five minutes (300 seconds). Forecast slots are half-hourly;
-there is no benefit in starting gridhour every second. Run gridhour interactively once to
+Waybar, Polybar and i3blocks refresh this module every five minutes (300 seconds).
+Tmux uses its normal status interval. Forecast slots are half-hourly; cached runs
+do not fetch new data on every refresh. Run gridhour interactively once to
 save your postcode and tariff, then check `gridhour --line` in a terminal. The bar must be
 able to find `gridhour` on its PATH; otherwise replace it with the absolute path printed by
 `command -v gridhour`. Use `--line` for plain text and `--tmux` only inside tmux.
+The ⚡ symbol needs an emoji-capable font in your bar.
 
 ### tmux
 
@@ -210,10 +212,10 @@ Add to `~/.tmux.conf`, then reload it with `tmux source-file ~/.tmux.conf`:
 
 ```tmux
 set -g status-right '#(gridhour --tmux) '
-set -g status-interval 300
 ```
 
-This replaces the right-hand status text and sets tmux's overall status refresh interval.
+This replaces the right-hand status text. Tmux reruns the command at its normal
+status interval, leaving the refresh rate of clocks and other status items alone.
 
 ### Waybar
 
