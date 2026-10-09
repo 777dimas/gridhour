@@ -66,7 +66,7 @@ def main(argv=None):
     ap.add_argument("--mode", choices=MODES, help="rank windows by carbon, price or both")
     ap.add_argument("--at", help="freeze the clock at this time (ISO 8601, UTC unless it has an offset)")
     ap.add_argument("--line", action="store_true", help="print one line for a status bar and exit")
-    ap.add_argument("--best", metavar="DURATION", help="with --line/--watch: the best start for a job this long")
+    ap.add_argument("--best", metavar="DURATION", help="with --line/--watch/--json: the best start for a job this long")
     ap.add_argument("--tmux", action="store_true", help="like --line with tmux colour codes")
     ap.add_argument("--watch", action="store_true", help="the one-liner, updating in place")
     ap.add_argument("--json", action="store_true", help="print JSON and exit")
@@ -128,7 +128,7 @@ def main(argv=None):
         if args.ical:
             sys.stdout.buffer.write(ical_output(st, now).encode("utf-8"))
         elif args.json:
-            print(json_output(st, now))
+            print(json_output(st, now, best))
         elif args.once:
             W, H = size or shutil.get_terminal_size((120, 40))
             print("\n".join(compose(W, H, st, now, now).lines()))

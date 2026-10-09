@@ -9,6 +9,11 @@ and the project uses [semantic versioning](https://semver.org/).
 
 * Status bar recipes for tmux, Waybar, Polybar and i3blocks, refreshing every five minutes.
 
+### Fixed
+
+* `--json --best DURATION` now includes the requested best window without changing saved jobs.
+
+
 ## [0.4.0] - 2026-10-06
 
 ### Added
