@@ -150,7 +150,7 @@ def ical_output(st, now):
     return _ical_document(lines)
 
 
-def json_output(st, now):
+def json_output(st, now, best=None):
     fc = st.fc
     sc = plan.scores(fc.slots, st.mode)
     s = fc.at(now)
@@ -161,19 +161,22 @@ def json_output(st, now):
         return {"from": iso(x.start), "to": iso(x.end), "carbon": x.carbon, "index": x.index, "price": x.price,
                 "mix": x.mix}
 
+    def window_json(w):
+        if w is None:
+            return None
+        return {"from": iso(w.start), "to": iso(w.end), "starts_in_minutes": _mins(w.start - now),
+                "carbon": None if w.carbon is None else round(w.carbon, 1),
+                "price": None if w.price is None else round(w.price, 2),
+                "parts": [{"from": iso(fc.slots[a].start), "to": iso(fc.slots[b].end)} for a, b in w.parts()]}
+
     jobs = []
     for job in st.jobs:
         w = plan.best_window(fc.slots, sc, job, now)
         g_now, p_now = plan.window_now(fc.slots, job, now)
         due = plan.deadline_at(job, now)
-        best = None
-        if w:
-            best = {"from": iso(w.start), "to": iso(w.end), "starts_in_minutes": _mins(w.start - now),
-                    "carbon": None if w.carbon is None else round(w.carbon, 1),
-                    "price": None if w.price is None else round(w.price, 2),
-                    "parts": [{"from": iso(fc.slots[a].start), "to": iso(fc.slots[b].end)} for a, b in w.parts()]}
+        job_best = window_json(w)
         jobs.append({"name": job.name, "minutes": job.minutes, "deadline": job.deadline,
-                     "deadline_at": iso(due) if due else None, "split": job.split, "best": best,
+                     "deadline_at": iso(due) if due else None, "split": job.split, "best": job_best,
                      "if_started_now": {"carbon": None if g_now is None else round(g_now, 1),
                                         "price": None if p_now is None else round(p_now, 2)}})
     doc = {
@@ -191,6 +194,8 @@ def json_output(st, now):
         "fetched": iso_ts(fc.fetched),
         "errors": fc.errors,
     }
+    if best is not None:
+        doc["best"] = window_json(plan.best_window(fc.slots, sc, best, now))
     return json.dumps(doc, indent=1, ensure_ascii=True)     # \uXXXX for anything outside ASCII, C1 included
 
 

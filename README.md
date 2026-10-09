@@ -346,3 +346,12 @@ More in [CONTRIBUTING.md](https://github.com/777dimas/gridhour/blob/main/CONTRIB
 ## Licence
 
 MIT, see [LICENSE](https://github.com/777dimas/gridhour/blob/main/LICENSE).
+
+### Ad-hoc windows in scripts
+
+`gridhour --json --best 2h` adds a top-level `best` window for a two-hour job without
+editing saved jobs. For example, `gridhour --json --best 2h | jq '.best'` prints its
+UTC `from` and `to`, `starts_in_minutes`, mean `carbon` (gCO₂/kWh), mean `price`
+(p/kWh including VAT), and continuous `parts`. Missing carbon or price is `null`;
+`best` itself is `null` if no complete window is available. Without `--best`, this
+extra key is absent. The selected mode ranks the window, just as for saved jobs.
