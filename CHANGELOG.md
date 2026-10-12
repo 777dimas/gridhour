@@ -5,13 +5,17 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-12
+
 ### Added
 
 * Status bar recipes for tmux, Waybar, Polybar and i3blocks, refreshing every five minutes.
+  Thanks @jnohclee-rgb (#27).
 
 ### Fixed
 
 * `--json --best DURATION` now includes the requested best window without changing saved jobs.
+  Thanks @jnohclee-rgb (#29).
 
 ## [0.4.0] - 2026-10-06
 
@@ -98,7 +102,8 @@ First release.
   for small panes.
 * Works offline from cache. Talks only to the two APIs over HTTPS.
 
-[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/777dimas/gridhour/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/777dimas/gridhour/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/777dimas/gridhour/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/777dimas/gridhour/compare/v0.1.2...v0.2.0
