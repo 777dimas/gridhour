@@ -186,6 +186,15 @@ If nothing in the next 48 hours makes that grade, the line says `greenest in 9h`
 deadline and the pieces it runs in included, with
 the carbon and price you would get starting now, for comparison) and the full 48 hour series.
 
+### Ad-hoc windows in scripts
+
+`gridhour --json --best 2h` adds a top-level `best` window for a two-hour job without
+editing saved jobs. For example, `gridhour --json --best 2h | jq '.best'` prints its
+UTC `from` and `to`, `starts_in_minutes`, mean `carbon` (gCO₂/kWh), mean `price`
+(p/kWh including VAT), and continuous `parts`. Missing carbon or price is `null`;
+`best` itself is `null` if no complete window is available. Without `--best`, this
+extra key is absent. The selected mode ranks the window, just as for saved jobs.
+
 Export the best job windows to an iCalendar file:
 
 ```sh

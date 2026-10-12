@@ -62,3 +62,24 @@ def test_ical(capsys):
     assert "SUMMARY:Washing (gridhour)\r\n" in out
     assert "DTSTAMP:20261003T224600Z\r\n" in out
     assert "\n" not in out.replace("\r\n", "")
+
+
+def test_json_best_uses_ad_hoc_duration_without_saving_it(capsys):
+    cli.main(["SW1A", "--json", "--at", "2026-10-03T22:46Z"])
+    before = json.loads(capsys.readouterr().out)
+    cli.main(["--json", "--best", "2h", "--at", "2026-10-03T22:46Z"])
+    requested = json.loads(capsys.readouterr().out)
+    assert requested["best"]["from"] == "2026-10-04T11:00Z"
+    assert requested["best"]["to"] == "2026-10-04T13:00Z"
+    assert requested["best"]["starts_in_minutes"] == 734
+    assert requested["jobs"] == before["jobs"]
+    cli.main(["--json", "--at", "2026-10-03T22:46Z"])
+    after = json.loads(capsys.readouterr().out)
+    assert "best" not in after
+    assert after["jobs"] == before["jobs"]
+
+
+def test_json_best_without_forecast_is_null(capsys):
+    cli.main(["SW1A", "--json", "--best", "2h", "--at", "2030-01-01T00:00Z"])
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["best"] is None
