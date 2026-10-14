@@ -5,6 +5,11 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+* No more crash on narrow screens (under about 120 columns, e.g. a tmux split) when a short job's
+  best window fell between columns: half-hour and one-hour jobs were the usual victims.
+
 ## [0.4.1] - 2026-10-12
 
 ### Added

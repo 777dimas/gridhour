@@ -68,8 +68,11 @@ class Axis:
         return self.start + WINDOW * ((col + 0.5) / self.w)
 
     def span(self, a, b):
-        """Columns covering slots a..b inclusive."""
-        return [c for c in range(self.w) if a <= self.slot(c) <= b]
+        """Columns covering slots a..b inclusive. On a narrow screen there are fewer columns than
+        half hours, so a short window may own no column at all; it then gets the column where it
+        starts, rather than none (which used to crash the label next to it)."""
+        cols = [c for c in range(self.w) if a <= self.slot(c) <= b]
+        return cols or [min(self.w - 1, a * self.w // WINDOW_SLOTS)]
 
 
 def nice_ceiling(v, floor):
