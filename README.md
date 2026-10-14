@@ -117,6 +117,9 @@ gridhour --reset && pipx uninstall gridhour    # --reset first deletes the saved
 
 ### Other ways
 
+* **Homebrew**, on macOS or Linux: `brew install 777dimas/tap/gridhour`. The formula lives in
+  [777dimas/homebrew-tap](https://github.com/777dimas/homebrew-tap) and can trail a fresh release
+  by a day or so.
 * **pip**, in a virtual environment: `pip install gridhour`.
 * **From a clone**, nothing to build: `python3 -m gridhour SW1A`.
 * **A specific release from GitHub**: `pipx install git+https://github.com/777dimas/gridhour@v0.4.2`.
