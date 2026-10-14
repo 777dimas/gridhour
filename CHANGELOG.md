@@ -5,6 +5,8 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-14
+
 ### Fixed
 
 * No more crash on narrow screens (under about 120 columns, e.g. a tmux split) when a short job's
@@ -107,7 +109,8 @@ First release.
   for small panes.
 * Works offline from cache. Talks only to the two APIs over HTTPS.
 
-[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/777dimas/gridhour/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/777dimas/gridhour/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/777dimas/gridhour/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/777dimas/gridhour/compare/v0.2.0...v0.3.0
