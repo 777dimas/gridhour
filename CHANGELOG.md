@@ -5,6 +5,10 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+* Homebrew install: `brew install 777dimas/tap/gridhour` (#26).
+
 ## [0.4.2] - 2026-10-14
 
 ### Fixed
