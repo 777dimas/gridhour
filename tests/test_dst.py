@@ -51,3 +51,15 @@ def test_repeated_hour_job_in_frame_and_line(st, hour, zone):
     assert 'best 01:30 ' + zone in line_output(st, now, best=st.jobs[0])
     assert start.strftime('%Y-%m-%dT%H:%MZ') in json_output(st, now)
     assert start.strftime('%Y%m%dT%H%M%SZ') in ical_output(st, now)
+
+
+@pytest.mark.parametrize('width', [63, 72, 120])
+@pytest.mark.parametrize('h12', [False, True])
+def test_clock_change_preserves_midnight_day_label(width, h12):
+    cv = Canvas(width, 1)
+    axis = Axis(0, width, datetime(2026, 10, 24, 22, tzinfo=UTC))
+    hour_ticks(cv, 0, axis, h12, small=True)
+    row = cv.text()[0]
+    assert 'Sun' in row
+    assert 'GMT' in row
+    assert row.index('Sun') + 3 <= row.index('GMT')

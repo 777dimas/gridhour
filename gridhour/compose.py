@@ -309,6 +309,7 @@ def hour_ticks(cv, y, axis, h12, small=False):
     if small and axis.w < 60:
         step = 12
     last = -10
+    occupied = set()
     for c in range(axis.w):
         t0 = axis.start + WINDOW * (c / axis.w)
         t1 = axis.start + WINDOW * ((c + 1) / axis.w)
@@ -330,15 +331,20 @@ def hour_ticks(cv, y, axis, h12, small=False):
             continue
         cv.put(x0 + c, y, label, color, None, boundary.hour == 0)
         last = c
+        occupied.update(range(c, c + len(label)))
 
-    # Paint transitions last so the zone marker survives ordinary hour labels.
+    # Keep existing labels intact; shift a transition right or omit it if cramped.
     for k in range(1, WINDOW_SLOTS):
         t = axis.start + SLOT * k
         if tz_name(t) != tz_name(t - SLOT):
             c = axis.col(t)
             if c is not None:
                 label = tz_name(t)
-                cv.put(x0 + min(c, max(0, axis.w - len(label))), y, label, C.WHITE, None, True)
+                for start in range(c, axis.w - len(label) + 1):
+                    if occupied.isdisjoint(range(start, start + len(label))):
+                        cv.put(x0 + start, y, label, C.WHITE, None, True)
+                        occupied.update(range(start, start + len(label)))
+                        break
 
 
 def cursor_row(cv, y, axis, now, live, h12):
