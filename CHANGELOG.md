@@ -9,6 +9,12 @@ and the project uses [semantic versioning](https://semver.org/).
 
 * Homebrew install: `brew install 777dimas/tap/gridhour` (#26).
 
+### Fixed
+
+* Non-interactive modes (`--line`, `--tmux`, `--json`, `--ical`, `--once`) now exit with code `2`
+  when no forecast data is available (offline with an empty cache, or both APIs failing), while
+  still printing their output (#11).
+
 ## [0.4.2] - 2026-10-14
 
 ### Fixed

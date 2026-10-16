@@ -92,6 +92,10 @@ class Forecast:
     def has_prices(self):
         return any(s.price is not None for s in self.slots)
 
+    @property
+    def has_data(self):
+        return any(s.carbon is not None or s.price is not None for s in self.slots)
+
 
 # ---------------------------------------------------------------- where
 
