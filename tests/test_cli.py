@@ -93,12 +93,10 @@ def test_json_best_without_forecast_is_null(capsys):
 
 @pytest.mark.parametrize("args,check", [
     (["--json"], lambda out: json.loads(out)["slots"] == [] and bool(json.loads(out)["errors"])),
-    (["--line"], lambda out: out.strip() == "⚡ network: down"),
-    (["--tmux"], lambda out: out.strip() == "⚡ network: down"),
     (["--ical"], lambda out: out.startswith("BEGIN:VCALENDAR\r\n") and "BEGIN:VEVENT" not in out),
     (["--once", "--size", "80x24"], lambda out: out.count("\n") == 24 and "network: down" in out),
 ])
-def test_noninteractive_exits_2_without_forecast(monkeypatch, capsys, args, check):
+def test_script_modes_exit_2_without_forecast(monkeypatch, capsys, args, check):
     def broken(url, timeout=12):
         raise OSError("down")
 
@@ -107,6 +105,16 @@ def test_noninteractive_exits_2_without_forecast(monkeypatch, capsys, args, chec
         cli.main(["SW1A", "--at", "2026-10-03T22:46Z", *args])
     assert exc.value.code == 2
     assert check(capsys.readouterr().out)
+
+
+@pytest.mark.parametrize("mode", ["--line", "--tmux"])
+def test_status_bar_modes_keep_error_text_at_exit_0(monkeypatch, capsys, mode):
+    def broken(url, timeout=12):
+        raise OSError("down")
+
+    monkeypatch.setattr(grid, "http_json", broken)
+    cli.main(["SW1A", "--at", "2026-10-03T22:46Z", mode])
+    assert capsys.readouterr().out.strip() == "⚡ network: down"
 
 
 def test_partial_and_cached_forecasts_exit_0(monkeypatch, capsys):
