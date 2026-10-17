@@ -1,5 +1,6 @@
 import json
 from datetime import timedelta, timezone
+from pathlib import Path
 
 from conftest import NOW
 
@@ -196,3 +197,33 @@ def test_ical_repeated_export(st):
     assert first_uids == second_uids
     assert "DTSTAMP:20261003T224600Z\r\n" in first
     assert "DTSTAMP:20261003T224700Z\r\n" in second
+
+
+def test_json_schema_version_on_forecast_and_empty_output(st):
+    assert json.loads(output.json_output(st, NOW))["schema"] == 1
+    st.fc.slots = []
+    st.fc.errors = ["offline and nothing cached yet"]
+    empty = json.loads(output.json_output(st, NOW, Job("job", 120)))
+    assert empty["schema"] == 1
+    assert empty["slots"] == [] and empty["best"] is None
+
+
+
+def test_json_documented_shape(st):
+    docs = Path(__file__).resolve().parents[1] / "docs" / "json.md"
+    example = json.loads(docs.read_text(encoding="utf-8").split("```json\n", 1)[1].split("```", 1)[0])
+    actual = json.loads(output.json_output(st, NOW, Job("job", 120)))
+
+    def check_keys(documented, emitted):
+        if isinstance(documented, dict):
+            assert documented.keys() <= emitted.keys()
+            for key, value in documented.items():
+                if key != "mix":  # Fuel names are data, not schema keys.
+                    check_keys(value, emitted[key])
+        elif isinstance(documented, list) and documented:
+            assert emitted
+            for value in emitted:
+                check_keys(documented[0], value)
+
+    check_keys(example, actual)
+    assert example["schema"] == actual["schema"] == 1
