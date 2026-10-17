@@ -135,6 +135,8 @@ def main(argv=None):
         else:
             color = "tmux" if args.tmux else ("ansi" if sys.stdout.isatty() else "plain")
             print(line_output(st, now, color, best))
+        if (args.json or args.ical or args.once) and not st.fc.has_data:
+            sys.exit(2)
         return
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         sys.exit("gridhour: needs an interactive terminal (use --once, --line or --json otherwise)")
