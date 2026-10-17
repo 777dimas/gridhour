@@ -11,7 +11,6 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ### Fixed
 
-* Keep clock-change markers from overwriting time-axis labels on narrow terminals.
 * Disambiguate repeated autumn job times with BST/GMT and mark clock changes on the time axis.
 
 ## [0.4.2] - 2026-10-14

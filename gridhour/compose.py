@@ -333,15 +333,16 @@ def hour_ticks(cv, y, axis, h12, small=False):
         last = c
         occupied.update(range(c, c + len(label)))
 
-    # Keep existing labels intact; shift a transition right or omit it if cramped.
+    # Keep labels separate and near the transition; omit a mark if cramped.
     for k in range(1, WINDOW_SLOTS):
         t = axis.start + SLOT * k
         if tz_name(t) != tz_name(t - SLOT):
             c = axis.col(t)
             if c is not None:
                 label = tz_name(t)
-                for start in range(c, axis.w - len(label) + 1):
-                    if occupied.isdisjoint(range(start, start + len(label))):
+                near = max(2, axis.w // 48)
+                for start in range(c, min(c + near, axis.w - len(label)) + 1):
+                    if occupied.isdisjoint(range(start - 1, start + len(label) + 1)):
                         cv.put(x0 + start, y, label, C.WHITE, None, True)
                         occupied.update(range(start, start + len(label)))
                         break

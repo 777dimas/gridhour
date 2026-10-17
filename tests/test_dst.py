@@ -24,12 +24,17 @@ def test_ordinary_and_spring_times_remain_short():
     (datetime(2026, 10, 25, 1, tzinfo=UTC), 'GMT'),
     (datetime(2027, 3, 28, 1, tzinfo=UTC), 'BST'),
 ])
-@pytest.mark.parametrize('width', [44, 120])
+@pytest.mark.parametrize('width', [44, 80, 120])
 def test_axis_marks_clock_change(transition, zone, width):
     cv = Canvas(width, 1)
     axis = Axis(0, width, transition - timedelta(hours=12))
-    hour_ticks(cv, 0, axis, False)
-    assert zone in cv.text()[0]
+    hour_ticks(cv, 0, axis, False, small=width < 60)
+    row = cv.text()[0]
+    # At 120 too, Sun and 03 leave no nearby gap for the spring mark.
+    if zone == 'BST' and width in (44, 120):
+        assert zone not in row
+    else:
+        assert zone in row
 
 
 @pytest.mark.parametrize('hour,zone', [(0, 'BST'), (1, 'GMT')])
@@ -62,4 +67,22 @@ def test_clock_change_preserves_midnight_day_label(width, h12):
     row = cv.text()[0]
     assert 'Sun' in row
     assert 'GMT' in row
-    assert row.index('Sun') + 3 <= row.index('GMT')
+    assert row.index('Sun') + 4 <= row.index('GMT')
+
+
+@pytest.mark.parametrize('transition,zone', [
+    (datetime(2026, 10, 25, 1, tzinfo=UTC), 'GMT'),
+    (datetime(2027, 3, 28, 1, tzinfo=UTC), 'BST'),
+])
+@pytest.mark.parametrize('h12', [False, True])
+def test_clock_change_marks_stay_near_and_separate(transition, zone, h12):
+    for width in range(40, 201):
+        cv = Canvas(width, 1)
+        axis = Axis(0, width, transition - timedelta(hours=12))
+        hour_ticks(cv, 0, axis, h12, small=width < 60)
+        row = cv.text()[0]
+        if zone in row:
+            start = row.index(zone)
+            assert 0 <= start - axis.col(transition) <= max(2, width // 48)
+            assert row[start - 1] == '─'
+            assert row[start + len(zone)] == '─'
