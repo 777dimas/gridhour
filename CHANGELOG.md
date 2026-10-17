@@ -9,6 +9,10 @@ and the project uses [semantic versioning](https://semver.org/).
 
 * Homebrew install: `brew install 777dimas/tap/gridhour` (#26).
 
+### Fixed
+
+* Disambiguate repeated autumn job times with BST/GMT and mark clock changes on the time axis.
+
 ## [0.4.2] - 2026-10-14
 
 ### Fixed
