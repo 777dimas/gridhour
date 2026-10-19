@@ -208,6 +208,12 @@ Import `jobs.ics` into your calendar app. Each continuous part of a job's best
 window becomes a separate event. Events include the best window's average carbon
 intensity and price, with UTC timestamps and stable UIDs for repeat imports.
 
+Script-facing commands (`--json`, `--ical`, `--once`) exit with status `0`
+when forecast data is available, and `2` when there is no forecast data at all (offline with an
+empty cache, or both APIs failing). They still print their usual output, including `errors` in
+`--json`. Status-bar modes `--line` and `--tmux` keep exit status `0` even without forecast
+data so bars continue showing the offline message.
+
 ## Status bar recipes
 
 Waybar, Polybar and i3blocks refresh this module every five minutes (300 seconds).
