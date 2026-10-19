@@ -6,7 +6,7 @@ import time
 from datetime import UTC
 
 from . import plan
-from .compose import hm
+from .compose import job_hm
 from .grid import iso, load
 from .safe import label
 from .themes import C, carbon_color, price_color
@@ -98,7 +98,7 @@ def line_output(st, now, color="plain", best=None):
         sc = plan.scores(fc.slots, st.mode)
         w = plan.best_window(fc.slots, sc, best, now)
         if w:
-            when = "now" if w.start <= now else "%s (in %s)" % (hm(w.start, st.h12), plan.fmt_in(w.start - now))
+            when = "now" if w.start <= now else "%s (in %s)" % (job_hm(w.start, st.h12), plan.fmt_in(w.start - now))
             pieces = len(w.parts())
             if pieces > 1:
                 when += ", %d pieces" % pieces

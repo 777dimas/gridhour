@@ -32,10 +32,17 @@ def hm(t, h12=False):
     return ("%d:%02d" % (h, lt.minute)) + ("am" if lt.hour < 12 else "pm")
 
 
+def job_hm(t, h12=False):
+    """Disambiguate both occurrences of a repeated local time."""
+    lt = t.astimezone(UK)
+    ambiguous = lt.replace(fold=0).utcoffset() != lt.replace(fold=1).utcoffset()
+    return hm(t, h12) + (" " + lt.tzname() if ambiguous else "")
+
+
 def day_hm(t, now, h12=False):
     """'14:30', 'tomorrow 02:00' style but short: 'Sun 02:00' when it is not today."""
     lt, ln = t.astimezone(UK), now.astimezone(UK)
-    s = hm(t, h12)
+    s = job_hm(t, h12)
     return s if lt.date() == ln.date() else lt.strftime("%a ") + s
 
 
@@ -208,9 +215,10 @@ def draw_bracket(cv, y, axis, win, h12):
         cv.put(x0 + a, y, "╭" + "─" * (b - a - 1) + "╮", color)
     else:
         cv.put(x0 + a, y, "▾", color)
-    label = " %s %s–%s " % (win.job.name, hm(win.start, h12), hm(win.end, h12))
+    label = " %s %s–%s " % (win.job.name, job_hm(win.start, h12), job_hm(win.end, h12))
     if len(win.parts()) > 1:
-        label = " %s, %d pieces, %s–%s " % (win.job.name, len(win.parts()), hm(win.start, h12), hm(win.end, h12))
+        label = " %s, %d pieces, %s–%s " % (win.job.name, len(win.parts()),
+                                           job_hm(win.start, h12), job_hm(win.end, h12))
     if len(label) <= b - a - 1:
         cv.put(x0 + a + (b - a + 1 - len(label)) // 2, y, label, C.WHITE, None, True)
     else:
@@ -301,6 +309,7 @@ def hour_ticks(cv, y, axis, h12, small=False):
     if small and axis.w < 60:
         step = 12
     last = -10
+    occupied = set()
     for c in range(axis.w):
         t0 = axis.start + WINDOW * (c / axis.w)
         t1 = axis.start + WINDOW * ((c + 1) / axis.w)
@@ -322,6 +331,21 @@ def hour_ticks(cv, y, axis, h12, small=False):
             continue
         cv.put(x0 + c, y, label, color, None, boundary.hour == 0)
         last = c
+        occupied.update(range(c, c + len(label)))
+
+    # Keep labels separate and near the transition; omit a mark if cramped.
+    for k in range(1, WINDOW_SLOTS):
+        t = axis.start + SLOT * k
+        if tz_name(t) != tz_name(t - SLOT):
+            c = axis.col(t)
+            if c is not None:
+                label = tz_name(t)
+                near = max(2, axis.w // 48)
+                for start in range(c, min(c + near, axis.w - len(label)) + 1):
+                    if occupied.isdisjoint(range(start - 1, start + len(label) + 1)):
+                        cv.put(x0 + start, y, label, C.WHITE, None, True)
+                        occupied.update(range(start, start + len(label)))
+                        break
 
 
 def cursor_row(cv, y, axis, now, live, h12):
@@ -458,7 +482,7 @@ def draw_jobs(cv, y, axis, st, slots, sc, wins, mode, now, live, room):
         if win:
             label_window(cv, y, axis, win, st.h12, live)
         elif job.deadline:
-            cv.put(axis.x0 + 1, y, "not enough forecast before %s for %s" % (hm(due, st.h12) if due else
+            cv.put(axis.x0 + 1, y, "not enough forecast before %s for %s" % (job_hm(due, st.h12) if due else
                                                                            job.deadline, job.describe()), C.DIM)
         else:
             cv.put(axis.x0 + 1, y, "no %s window in the forecast yet" % plan.fmt_duration(job.minutes), C.DIM)
@@ -471,9 +495,9 @@ def label_window(cv, y, axis, win, h12, live):
     cols = axis.span(win.first, win.last)
     pieces = len(win.parts())
     if pieces > 1:
-        text = " %d pieces, done %s" % (pieces, hm(win.end, h12))
+        text = " %d pieces, done %s" % (pieces, job_hm(win.end, h12))
     else:
-        text = " %s–%s" % (hm(win.start, h12), hm(win.end, h12))
+        text = " %s–%s" % (job_hm(win.start, h12), job_hm(win.end, h12))
     if win.carbon is not None:
         text += " · %dg" % round(win.carbon)
     if win.price is not None:
@@ -514,7 +538,7 @@ def draw_footer(cv, st, fc, now, live, win, slots, W, H):
                                      else day_hm(win.start, live, st.h12) + ", in %s" % plan.fmt_in(start_in)),
                       C.TEXT)]
             if len(win.parts()) > 1:
-                parts.append((", %d pieces, done %s" % (len(win.parts()), hm(win.end, st.h12)), C.TEXT))
+                parts.append((", %d pieces, done %s" % (len(win.parts()), job_hm(win.end, st.h12)), C.TEXT))
             if win.carbon is not None and g_now:
                 d = (win.carbon - g_now) / g_now * 100
                 parts.append((" · %dg" % round(win.carbon), carbon_color(win.carbon)))
