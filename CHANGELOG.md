@@ -5,18 +5,28 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-19
+
 ### Added
 
-* JSON output carries `schema: 1`, with a versioned field, unit and nullability reference (#11).
+* `--json` output has a `"schema": 1` field and a full reference in
+  [docs/json.md](https://github.com/777dimas/gridhour/blob/main/docs/json.md): every field, its
+  unit and when it can be `null`. Within schema 1, changes only add fields. Thanks
+  @jnohclee-rgb (#36).
+* Homebrew: `brew install 777dimas/tap/gridhour` on macOS and Linux (#26).
 
-* Homebrew install: `brew install 777dimas/tap/gridhour` (#26).
+### Changed
+
+* `--json`, `--ical` and `--once` exit with status 2 when there is no forecast at all (offline
+  with an empty cache, or both APIs failing), so cron and scripts can tell. They still print
+  their usual output. `--line` and `--tmux` keep exiting 0, so status bars go on showing the
+  offline message. Thanks @jnohclee-rgb (#35).
 
 ### Fixed
 
-* Script-facing modes (`--json`, `--ical`, `--once`) now exit with code `2`
-  when no forecast data is available (offline with an empty cache, or both APIs failing), while
-  still printing their output (#11). Status-bar modes `--line` and `--tmux` keep exit code `0`
-  so bars continue showing the offline message.
+* Times that happen twice when the clocks go back now say which one they are: a job at
+  "01:30 BST" or "01:30 GMT" on the last Sunday of October. The time axis marks the change.
+  Thanks @jnohclee-rgb (#31).
 
 ## [0.4.2] - 2026-10-14
 
@@ -122,7 +132,8 @@ First release.
   for small panes.
 * Works offline from cache. Talks only to the two APIs over HTTPS.
 
-[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/777dimas/gridhour/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/777dimas/gridhour/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/777dimas/gridhour/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/777dimas/gridhour/compare/v0.3.0...v0.4.0
