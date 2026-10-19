@@ -1,4 +1,7 @@
 import json
+import os
+import subprocess
+import sys
 
 import pytest
 from conftest import fake_fetch
@@ -80,6 +83,94 @@ def test_json_best_uses_ad_hoc_duration_without_saving_it(capsys):
 
 
 def test_json_best_without_forecast_is_null(capsys):
-    cli.main(["SW1A", "--json", "--best", "2h", "--at", "2030-01-01T00:00Z"])
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["SW1A", "--json", "--best", "2h", "--at", "2030-01-01T00:00Z"])
+    assert exc.value.code == 2
     doc = json.loads(capsys.readouterr().out)
     assert doc["best"] is None
+    assert doc["slots"] == []
+
+
+@pytest.mark.parametrize("args,check", [
+    (["--json"], lambda out: json.loads(out)["slots"] == [] and bool(json.loads(out)["errors"])),
+    (["--ical"], lambda out: out.startswith("BEGIN:VCALENDAR\r\n") and "BEGIN:VEVENT" not in out),
+    (["--once", "--size", "80x24"], lambda out: out.count("\n") == 24 and "network: down" in out),
+])
+def test_script_modes_exit_2_without_forecast(monkeypatch, capsys, args, check):
+    def broken(url, timeout=12):
+        raise OSError("down")
+
+    monkeypatch.setattr(grid, "http_json", broken)
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["SW1A", "--at", "2026-10-03T22:46Z", *args])
+    assert exc.value.code == 2
+    assert check(capsys.readouterr().out)
+
+
+@pytest.mark.parametrize("mode", ["--line", "--tmux"])
+def test_status_bar_modes_keep_error_text_at_exit_0(monkeypatch, capsys, mode):
+    def broken(url, timeout=12):
+        raise OSError("down")
+
+    monkeypatch.setattr(grid, "http_json", broken)
+    cli.main(["SW1A", "--at", "2026-10-03T22:46Z", mode])
+    assert capsys.readouterr().out.strip() == "⚡ network: down"
+
+
+def test_partial_and_cached_forecasts_exit_0(monkeypatch, capsys):
+    # Price-only partial forecast (carbon fails, prices succeed for a known region) -> exit 0
+    def prices_only(url, timeout=12):
+        if "carbonintensity" in url:
+            raise OSError("carbon down")
+        return fake_fetch(url)
+
+    monkeypatch.setattr(grid, "http_json", prices_only)
+    cli.main(["--region", "london", "--json", "--at", "2026-10-03T22:46Z"])
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["slots"] and all(s["carbon"] is None and s["price"] is not None for s in doc["slots"])
+    assert doc["errors"] == ["network: carbon down"]
+
+    # Carbon-only partial forecast (prices fail, carbon succeeds) -> exit 0
+    cli.main(["--reset"])
+    capsys.readouterr()
+
+    def carbon_only(url, timeout=12):
+        if "octopus" in url:
+            raise OSError("prices down")
+        return fake_fetch(url)
+
+    monkeypatch.setattr(grid, "http_json", carbon_only)
+    cli.main(["SW1A", "--line", "--at", "2026-10-03T22:46Z"])
+    assert capsys.readouterr().out.strip() == "⚡ 251g · green in 7h30"
+
+    # Cached forecast served when live refresh fails (errors present, data present) -> exit 0
+    monkeypatch.setattr(grid, "http_json", lambda url, timeout=12: fake_fetch(url))
+    cli.main(["SW1A", "--line", "--at", "2026-10-03T22:46Z"])
+    capsys.readouterr()
+    monkeypatch.setattr(grid, "_read_cache", lambda key, _orig=grid._read_cache: (
+        (1.0, _orig(key)[1]) if _orig(key)[1] is not None else (None, None)
+    ))
+    monkeypatch.setattr(grid, "http_json", lambda url, timeout=12: (_ for _ in ()).throw(OSError("offline now")))
+    cli.main(["SW1A", "--json", "--at", "2026-10-03T22:46Z"])
+    cached_doc = json.loads(capsys.readouterr().out)
+    assert len(cached_doc["slots"]) == 96
+    assert cached_doc["errors"]
+
+
+def test_subprocess_offline_empty_cache_exits_2(tmp_path):
+    env = os.environ.copy()
+    env["XDG_CONFIG_HOME"] = str(tmp_path / "cfg")
+    env["XDG_CACHE_HOME"] = str(tmp_path / "cache")
+    env["GRIDHOUR_OFFLINE"] = "1"
+    proc = subprocess.run(
+        [sys.executable, "-m", "gridhour", "SW1A", "--json", "--at", "2026-10-03T22:46Z"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 2
+    assert proc.stderr == ""
+    doc = json.loads(proc.stdout)
+    assert doc["slots"] == []
+    assert doc["errors"] == ["offline and nothing cached yet"]
