@@ -7,6 +7,8 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ### Added
 
+* JSON output carries `schema: 1`, with a versioned field, unit and nullability reference (#11).
+
 * Homebrew install: `brew install 777dimas/tap/gridhour` (#26).
 
 ### Fixed

@@ -180,6 +180,7 @@ def json_output(st, now, best=None):
                      "if_started_now": {"carbon": None if g_now is None else round(g_now, 1),
                                         "price": None if p_now is None else round(p_now, 2)}})
     doc = {
+        "schema": 1,
         "at": iso(now),
         "region": {"id": fc.region_id, "name": fc.region, "postcode": fc.postcode},
         "tariff": fc.tariff if fc.has_prices else None,

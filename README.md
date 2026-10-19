@@ -189,6 +189,9 @@ If nothing in the next 48 hours makes that grade, the line says `greenest in 9h`
 deadline and the pieces it runs in included, with
 the carbon and price you would get starting now, for comparison) and the full 48 hour series.
 
+JSON includes `"schema": 1`. The [JSON reference](docs/json.md) documents fields, units and nulls;
+changes within a schema version are additive only.
+
 ### Ad-hoc windows in scripts
 
 `gridhour --json --best 2h` adds a top-level `best` window for a two-hour job without
