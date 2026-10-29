@@ -5,6 +5,7 @@ import time
 from dataclasses import replace
 
 from .grid import GSP_REGION, REGIONS, Forecast, normalize_postcode, normalize_tariff, number
+from .notify import Notifier
 from .plan import DEFAULT_JOBS, MODES, Job, parse_clock
 from .safe import atomic_write, label
 from .themes import C, apply_theme
@@ -40,6 +41,8 @@ class State:
         self.h12 = False
         self.mix = True             # show the generation mix rows
         self.frozen = None          # scrubbed time, None = live
+        self.notify = False         # alert when the selected job's best window starts
+        self.notifier = Notifier()
         self.fc = Forecast()
         self.loading = False
         self.gen = 0                # fetch generation, the newest one wins
@@ -62,7 +65,7 @@ class State:
                 {"postcode": self.postcode, "region": self.region_id, "gsp": self.gsp, "tariff": self.tariff,
                  "prices": self.prices,
                  "jobs": [j.to_json() for j in self.jobs], "mode": self.mode, "theme": C.name, "h12": self.h12,
-                 "mix": self.mix, "compact": self.compact}, indent=1))
+                 "mix": self.mix, "compact": self.compact, "notify": self.notify}, indent=1))
         except OSError:
             pass
 
@@ -111,4 +114,5 @@ def state_from_config():
     st.h12 = cfg.get("h12") is True
     st.mix = cfg.get("mix", True) is not False
     st.compact = cfg["compact"] if _choice(cfg.get("compact"), ("auto", "on", "off")) else "auto"
+    st.notify = cfg.get("notify") is True
     return st

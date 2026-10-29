@@ -562,8 +562,8 @@ def draw_footer(cv, st, fc, now, live, win, slots, W, H):
             age = (fc.errors[0][:40] + " · " + age) if age else fc.errors[0][:40]
         cv.put(W - len(age) - 1, y, age, C.AMBER if fc.errors else C.DIM)
     keys = [("←→", "time"), ("↑↓", "job"), ("w", "green/cheap"), ("+-", "length"), ("a", "add"), ("d", "delete"),
-            ("p", "postcode"), ("o", "tariff"), ("?", "help"), ("q", "quit"), ("r", "now"), ("R", "refresh"),
-            ("m", "mix"), ("T", "theme")]
+            ("p", "postcode"), ("o", "tariff"), ("n", "notify"), ("?", "help"), ("q", "quit"), ("r", "now"),
+            ("R", "refresh"), ("m", "mix"), ("T", "theme")]
     x = 0
     for k, label in keys:
         if x + len(k) + len(label) + 4 > W:
@@ -592,6 +592,7 @@ HELP = [
     ("b s", "selected job: finish-by time, may run in pieces"),
     ("Enter", "jump the cursor to the selected job's best window"),
     ("w", "rank windows by carbon, by price, or both"),
+    ("n", "notify when the selected job's best window starts"),
     ("p", "set your postcode (region and Agile prices follow it)"),
     ("o", "your Octopus tariff: its name from the app, a code, or agile"),
     ("m", "show or hide the generation mix"),

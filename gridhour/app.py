@@ -183,6 +183,10 @@ class Screen:
         self.shown = []
         self.size = None
 
+    def bell(self):
+        self.out.write("\a")
+        self.out.flush()
+
     def show(self, lines, size):
         parts = []
         if size != self.size:
@@ -225,6 +229,7 @@ def _loop(st, events, screen):
         W, H = shutil.get_terminal_size((100, 30))
         now = st.frozen or live.replace(microsecond=0)
         screen.show(compose(W, H, st, now, live.replace(microsecond=0)).lines(), (W, H))
+        st.notifier.check(st, live, screen)
         try:
             kind, value = events.get(timeout=max(0.05, 1.0 - live.microsecond / 1e6))
         except queue.Empty:
