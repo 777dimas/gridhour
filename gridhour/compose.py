@@ -306,7 +306,7 @@ def hour_ticks(cv, y, axis, h12, small=False):
     for c in range(axis.w):
         cv.put(x0 + c, y, "─", C.BORDER)
     step = 3 if axis.w >= 90 else 6
-    if small and axis.w < 60:
+    if axis.w < 32 or small and axis.w < 60:     # under 32 columns, 6-hourly labels crowd out the day names
         step = 12
     last = -10
     occupied = set()
@@ -316,11 +316,13 @@ def hour_ticks(cv, y, axis, h12, small=False):
         b = t0.replace(minute=0, second=0, microsecond=0)
         if b < t0:
             b += timedelta(hours=1)
+        # below 48 columns a column spans more than an hour: label the first hour in it that is
+        # due one, or midnight can share a column with 23:00 and be lost
+        while b < t1 and b.astimezone(UK).hour % step:
+            b += timedelta(hours=1)
         if b >= t1:
             continue
         boundary = b.astimezone(UK)
-        if boundary.hour % step:
-            continue
         if boundary.hour == 0:
             label, color = boundary.strftime("%a"), C.WHITE
         elif h12:
