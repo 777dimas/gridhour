@@ -5,6 +5,11 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+* On a terminal narrower than 71 columns, the time axis could leave out the day names, or in
+  the compact layout every label, depending on the time of day.
+
 ## [0.5.0] - 2026-10-19
 
 ### Added
