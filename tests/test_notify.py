@@ -424,3 +424,54 @@ def test_arriving_forecast_replans_upcoming_window(st):
     notifier.check(st, NOW)
     assert notifier.pending_window.start == target
     assert target != previous
+
+
+def test_build_desktop_cmd_preserves_longer_body_and_stats():
+    job = Job("Overnight immersion heater", 120)
+    window = Window(job, 0, 3, 0.2, 104.0, 6.3, NOW, NOW + timedelta(hours=2))
+    body = format_notification(job, window)
+    assert body == "Overnight immersion heater: best window starts now (104 g, 6.3p)"
+    assert len(body) == 64
+
+    cmd_linux = build_desktop_cmd("Gridhour", body, platform="linux", which=lambda x: "/usr/bin/notify-send")
+    assert cmd_linux == [
+        "/usr/bin/notify-send",
+        "--",
+        "Gridhour",
+        "Overnight immersion heater: best window starts now (104 g, 6.3p)",
+    ]
+
+    cmd_mac = build_desktop_cmd("Gridhour", body, platform="darwin", which=lambda x: "/usr/bin/osascript")
+    assert cmd_mac[-1] == "Overnight immersion heater: best window starts now (104 g, 6.3p)"
+
+
+def test_build_desktop_cmd_max_job_name_and_split():
+    name_60 = "Overnight battery charging and heat pump water heating cycle"
+    assert len(name_60) == 60
+    job = Job(name_60, 240, split=True)
+    window = Window(job, 0, 5, 0.1, 79.8, 5.0, NOW, NOW + timedelta(hours=3), indices=(0, 1, 4, 5))
+    body = format_notification(job, window)
+    expected = "%s: best window starts now (first of 2 pieces, 80 g, 5.0p)" % name_60
+    assert body == expected
+    assert len(body) == 116
+
+    cmd_linux = build_desktop_cmd("Gridhour", body, platform="linux", which=lambda x: "/usr/bin/notify-send")
+    assert cmd_linux[-1] == expected
+
+    cmd_mac = build_desktop_cmd("Gridhour", body, platform="darwin", which=lambda x: "/usr/bin/osascript")
+    assert cmd_mac[-1] == expected
+
+
+def test_build_desktop_cmd_hostile_controls_and_bounded():
+    hostile_body = 'Job\x1b[31m "name" \x00\r\n\u202e: best window starts now (104 g, 6.3p)'
+    cmd_mac = build_desktop_cmd("Gridhour\x00", hostile_body, platform="darwin", which=lambda x: "/usr/bin/osascript")
+    assert "\x1b" not in cmd_mac[-1]
+    assert "\x00" not in cmd_mac[-1]
+    assert "\r" not in cmd_mac[-1]
+    assert "\n" not in cmd_mac[-1]
+    assert "\u202e" not in cmd_mac[-1]
+    assert "\x00" not in cmd_mac[-2]
+
+    huge = "A" * 5000
+    cmd_bounded = build_desktop_cmd("Gridhour", huge, platform="darwin", which=lambda x: "/usr/bin/osascript")
+    assert len(cmd_bounded[-1]) <= 160

@@ -52,10 +52,14 @@ def _run_cmd(cmd):
         pass
 
 
+# A 60-character job label plus the generated window, split and carbon/price details.
+BODY_LIMIT = 160
+
+
 def build_desktop_cmd(title, body, platform=None, which=shutil.which):
     plat = platform if platform is not None else sys.platform
     title_safe = label(title) or "Gridhour"
-    body_safe = label(body) or ""
+    body_safe = label(body, BODY_LIMIT) or ""
     if plat == "darwin":
         exe = which("osascript")
         if exe:
