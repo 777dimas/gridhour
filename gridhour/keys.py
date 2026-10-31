@@ -98,6 +98,10 @@ def handle_key(st, k, live):
         st.compact = {"auto": "on", "on": "off", "off": "auto"}[st.compact]
         st.say("layout: " + {"auto": "automatic", "on": "compact", "off": "full"}[st.compact], C.TEXT)
         st.save()
+    elif k == "n":
+        st.notify = not st.notify
+        st.say("notifications: %s" % ("on" if st.notify else "off"), C.TEXT)
+        st.save()
     elif k == "?":
         st.prompt = "help"
     return None
