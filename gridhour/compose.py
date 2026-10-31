@@ -562,8 +562,8 @@ def draw_footer(cv, st, fc, now, live, win, slots, W, H):
             age = (fc.errors[0][:40] + " · " + age) if age else fc.errors[0][:40]
         cv.put(W - len(age) - 1, y, age, C.AMBER if fc.errors else C.DIM)
     keys = [("←→", "time"), ("↑↓", "job"), ("w", "green/cheap"), ("+-", "length"), ("a", "add"), ("d", "delete"),
-            ("p", "postcode"), ("o", "tariff"), ("n", "notify"), ("?", "help"), ("q", "quit"), ("r", "now"),
-            ("R", "refresh"), ("m", "mix"), ("T", "theme")]
+            ("p", "postcode"), ("o", "tariff"), ("?", "help"), ("q", "quit"), ("r", "now"),
+            ("R", "refresh"), ("m", "mix"), ("T", "theme"), ("n", "notify")]
     x = 0
     for k, label in keys:
         if x + len(k) + len(label) + 4 > W:

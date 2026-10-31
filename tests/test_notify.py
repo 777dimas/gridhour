@@ -345,8 +345,8 @@ def test_compose_help_and_chips(st):
     help_keys = [k for k, _ in HELP]
     assert "n" in help_keys
 
-    # Check 'n' chip in bottom line of compose
-    cv = compose(120, 40, st, NOW, NOW)
+    # The optional last chip appears when the footer has enough room.
+    cv = compose(200, 40, st, NOW, NOW)
     rendered_text = "\n".join(cv.text())
     assert "notify" in rendered_text
 
