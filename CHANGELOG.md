@@ -5,15 +5,17 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-01
+
 ### Added
 
 * Desktop notification and terminal bell when the selected job's best window starts,
-  toggled with `n` (#8).
+  toggled with `n` (#8). Off by default. Thanks @jnohclee-rgb (#49).
 
 ### Fixed
 
 * On a terminal narrower than 71 columns, the time axis could leave out the day names, or in
-  the compact layout every label, depending on the time of day.
+  the compact layout every label, depending on the time of day. Thanks @vlasky (#48).
 
 ## [0.5.0] - 2026-10-19
 
@@ -142,7 +144,8 @@ First release.
   for small panes.
 * Works offline from cache. Talks only to the two APIs over HTTPS.
 
-[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/777dimas/gridhour/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/777dimas/gridhour/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/777dimas/gridhour/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/777dimas/gridhour/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/777dimas/gridhour/compare/v0.4.0...v0.4.1
