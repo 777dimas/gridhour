@@ -87,3 +87,15 @@ def test_twelve_hour_clock(st):
     st.h12 = True
     t = text(st)
     assert "11:46pm BST" in t and "12:00pm–2:00pm" in t
+
+
+@pytest.mark.parametrize("width", [100, 105, 110])
+def test_footer_keeps_help_before_optional_notify(st, width):
+    footer = compose(width, 40, st, NOW, NOW).text()[-1]
+    assert "?  help" in footer
+    assert "notify" not in footer
+
+
+def test_wide_footer_has_notify_after_theme(st):
+    footer = compose(200, 40, st, NOW, NOW).text()[-1]
+    assert footer.index("help") < footer.index("theme") < footer.index("notify")

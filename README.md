@@ -163,10 +163,19 @@ Keys inside the app (`?` lists them all):
 | `p` | change postcode |
 | `o` | change tariff: its name from the Octopus app, a code, or `agile` |
 | `m` `c` `T` `t` | mix rows, compact layout, theme, 12/24h |
+| `n` | toggle notifications for the selected job (off by default) |
 | `R` | refetch now |
 | `q` | quit |
 
 Settings and jobs live in `~/.config/gridhour/config.json`.
+
+With notifications enabled (`"notify": true` in the config), keep the TUI open and the cursor
+live (`r`). When an upcoming best window for the selected job starts, Gridhour rings the terminal
+bell and sends a desktop notification using `osascript` on macOS or `notify-send` on Linux,
+if available. Your terminal and desktop settings control whether these are audible or visible.
+Split jobs alert at the first piece only. Opening the app, changing jobs, returning from a scrubbed
+time, or enabling notifications after a window has started does not send a catch-up alert.
+Waking more than a minute after a tracked start also skips that alert.
 
 ## Status bars and scripts
 

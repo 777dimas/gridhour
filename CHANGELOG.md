@@ -5,6 +5,11 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+* Desktop notification and terminal bell when the selected job's best window starts,
+  toggled with `n` (#8).
+
 ### Fixed
 
 * On a terminal narrower than 71 columns, the time axis could leave out the day names, or in
